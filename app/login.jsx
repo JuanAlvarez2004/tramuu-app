@@ -1,7 +1,8 @@
+import SimpleButton from "@/components/SimpleButton";
 import { router, Stack } from "expo-router";
-import { ArrowLeft, Lock, Mail } from "lucide-react-native";
+import { Lock, Mail } from "lucide-react-native";
+import { useState } from "react";
 import {
-  Pressable,
   StyleSheet,
   Text,
   TextInput,
@@ -10,8 +11,10 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
+import BackToButton from "../components/BackToButton";
 
 export default function Login() {
+  const [focusedInput, setFocusedInput] = useState(null);
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right']}>
       <Stack.Screen
@@ -55,9 +58,7 @@ export default function Login() {
               </Svg>
             </View>
 
-            <Pressable onPress={() => router.push('/')} style={styles.backButton}>
-              <ArrowLeft size={16} color="black" />
-            </Pressable>
+            <BackToButton addStyles={{ marginBottom: 50 }} />
 
             {/* Heading */}
             <View style={styles.heading}>
@@ -75,25 +76,35 @@ export default function Login() {
 
             <View style={styles.inputsContainer}>
               {/* Email Input */}
-              <View style={styles.inputContainer}>
-                <Mail size={20} color="black" />
+              <View style={[
+                styles.inputContainer,
+                focusedInput === 'email' && styles.inputContainerFocused
+              ]}>
+                <Mail size={20} color={focusedInput === 'email' ? "#60A5FA" : "black"} />
                 <TextInput
                   placeholder="admin@email.com"
                   placeholderTextColor="#64748B"
                   style={styles.input}
                   keyboardType="email-address"
                   autoCapitalize="none"
+                  onFocus={() => setFocusedInput('email')}
+                  onBlur={() => setFocusedInput(null)}
                 />
               </View>
 
               {/* Password Input */}
-              <View style={styles.inputContainer}>
-                <Lock size={20} color="black" />
+              <View style={[
+                styles.inputContainer,
+                focusedInput === 'password' && styles.inputContainerFocused
+              ]}>
+                <Lock size={20} color={focusedInput === 'password' ? "#60A5FA" : "black"} />
                 <TextInput
-                  placeholder="***"
+                  placeholder="contraseña"
                   placeholderTextColor="#64748B"
                   style={styles.input}
                   secureTextEntry
+                  onFocus={() => setFocusedInput('password')}
+                  onBlur={() => setFocusedInput(null)}
                 />
               </View>
 
@@ -108,14 +119,20 @@ export default function Login() {
             </View>
 
             {/* Entrar Button */}
-            <TouchableOpacity style={styles.loginButton}>
+            <SimpleButton 
+              onPress={() => console.log("Entrando...")}
+              addStylesButton={styles.loginButton}
+            >
               <Text style={styles.loginButtonText}>Entrar</Text>
-            </TouchableOpacity>
+            </SimpleButton>
 
             {/* Registrar Button */}
-            <TouchableOpacity style={styles.registerButton}>
+            <SimpleButton
+              onPress={() => router.push("/typeRegister")}
+              addStylesButton={styles.registerButton}
+            >
               <Text style={styles.registerButtonText}>Registrar</Text>
-            </TouchableOpacity>
+            </SimpleButton>
           </View>
         </View>
       </View>
@@ -164,18 +181,8 @@ const styles = StyleSheet.create({
   blob2: {
     transform: [{ rotate: "-40.41deg" }],
   },
-  backButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: "#60A5FA", // brand-blue equivalent
-    borderWidth: 1,
-    borderColor: "black",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 48,
-  },
   heading: {
+    marginTop: 110,
     position: "relative",
     zIndex: 10,
   },
@@ -219,17 +226,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingVertical: 16,
     borderRadius: 32,
-    borderWidth: 1,
+    borderWidth: 2,
     borderColor: "#E2E8F0",
     backgroundColor: "white",
     elevation: 1,
     marginBottom: 16,
+    transition: "border-color 0.2s ease",
+  },
+  inputContainerFocused: {
+    borderColor: "#60A5FA",
+    borderWidth: 2,
+    elevation: 3,
   },
   input: {
     flex: 1,
     fontSize: 14,
-    color: "#64748B",
+    color: "#222222ff",
     backgroundColor: "transparent",
+    outlineStyle: "none",
   },
   forgotPasswordContainer: {
     alignItems: "flex-end",
@@ -241,11 +255,7 @@ const styles = StyleSheet.create({
   },
   loginButton: {
     width: "100%",
-    paddingVertical: 16,
-    borderRadius: 32,
     backgroundColor: "black",
-    alignItems: "center",
-    justifyContent: "center",
     marginBottom: 12,
   },
   loginButtonText: {
@@ -255,11 +265,7 @@ const styles = StyleSheet.create({
   },
   registerButton: {
     width: "100%",
-    paddingVertical: 16,
-    borderRadius: 32,
     backgroundColor: "#60A5FA", // brand-blue equivalent
-    alignItems: "center",
-    justifyContent: "center",
   },
   registerButtonText: {
     color: "black",
