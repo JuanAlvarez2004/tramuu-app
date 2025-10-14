@@ -1,5 +1,6 @@
 import { Tabs } from 'expo-router';
 import { House, Milk, NotepadText, Package, Truck } from 'lucide-react-native';
+import HeaderUser from '../../components/dashboard/HeaderUser';
 
 export default function TabLayout() {
   const { width: screenWidth } = require('react-native').Dimensions.get('window');
@@ -7,19 +8,12 @@ export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        headerShown: false,
+        headerShown: true,
+        header: () => <HeaderUser />,
         tabBarStyle: {
           backgroundColor: '#FFF',
           borderTopLeftRadius: Math.max(20, screenWidth * 0.04),
           borderTopRightRadius: Math.max(20, screenWidth * 0.04),
-          shadowColor: '#000',
-          shadowOffset: {
-            width: 0,
-            height: 0,
-          },
-          shadowOpacity: 0.05,
-          shadowRadius: 16,
-          elevation: 16,
           paddingHorizontal: Math.max(8, screenWidth * 0.02),
           paddingTop: Math.max(8, screenWidth * 0.01),
           paddingBottom: Math.max(12, screenWidth * 0.015),
