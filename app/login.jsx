@@ -1,5 +1,5 @@
 import SimpleButton from "@/components/SimpleButton";
-import { router, Stack } from "expo-router";
+import { router } from "expo-router";
 import { Lock, Mail } from "lucide-react-native";
 import { useState } from "react";
 import {
@@ -17,11 +17,6 @@ export default function Login() {
   const [focusedInput, setFocusedInput] = useState(null);
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right']}>
-      <Stack.Screen
-        options={{
-          headerShown: false,
-        }}
-      />
       <View style={styles.content}>
         <View style={styles.containerSections}>
           {/* Black background section with organic blobs */}
@@ -120,7 +115,7 @@ export default function Login() {
 
             {/* Entrar Button */}
             <SimpleButton 
-              onPress={() => console.log("Entrando...")}
+              onPress={() => router.replace("/(tabs)")}
               addStylesButton={styles.loginButton}
             >
               <Text style={styles.loginButtonText}>Entrar</Text>

@@ -1,4 +1,3 @@
-import { Stack, useRouter } from "expo-router";
 import { useState } from "react";
 import {
   Dimensions,
@@ -8,18 +7,17 @@ import {
   StatusBar,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
 import BackToButton from "../../components/BackToButton";
 import SimpleButton from "../../components/SimpleButton";
+import InputForm from "../../components/InputForm";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 
 export default function CompanyRegister() {
-  const router = useRouter();
   const [formData, setFormData] = useState({
     nombre: "",
     nitId: "",
@@ -40,11 +38,6 @@ export default function CompanyRegister() {
 
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right']} >
-      <Stack.Screen
-        options={{
-          headerShown: false,
-        }}
-      />
       <StatusBar barStyle="light-content" backgroundColor="#000000" />
       
       <KeyboardAvoidingView 
@@ -100,81 +93,22 @@ export default function CompanyRegister() {
 
             <View style={styles.form}>
               {/* Nombre */}
-              <View style={styles.fieldContainer}>
-                <Text style={styles.label}>Nombre</Text>
-                <TextInput
-                  placeholder="Lacteos S.A"
-                  placeholderTextColor="#64748B"
-                  value={formData.nombre}
-                  onChangeText={(value) => updateFormData("nombre", value)}
-                  style={styles.input}
-                />
-              </View>
+              <InputForm updateFormData={updateFormData} formData={formData} label="Nombre" placeholder="Lacteos S.A" />
 
               {/* NIT/ID */}
-              <View style={styles.fieldContainer}>
-                <Text style={styles.label}>NIT/ID</Text>
-                <TextInput
-                  placeholder="800197268-4"
-                  placeholderTextColor="#64748B"
-                  value={formData.nitId}
-                  onChangeText={(value) => updateFormData("nitId", value)}
-                  style={styles.input}
-                />
-              </View>
+              <InputForm updateFormData={updateFormData} formData={formData} label="NIT/ID" placeholder="800197268-4" />
 
               {/* Dirección */}
-              <View style={styles.fieldContainer}>
-                <Text style={styles.label}>Dirección</Text>
-                <TextInput
-                  placeholder="Cra 2 Bis Cl 22"
-                  placeholderTextColor="#64748B"
-                  value={formData.direccion}
-                  onChangeText={(value) => updateFormData("direccion", value)}
-                  style={styles.input}
-                />
-              </View>
+              <InputForm updateFormData={updateFormData} formData={formData} label="Dirección" placeholder="Cra 2 Bis Cl 22" />
 
               {/* Teléfono */}
-              <View style={styles.fieldContainer}>
-                <Text style={styles.label}>Teléfono</Text>
-                <TextInput
-                  placeholder="3145442377"
-                  placeholderTextColor="#64748B"
-                  value={formData.telefono}
-                  onChangeText={(value) => updateFormData("telefono", value)}
-                  style={styles.input}
-                  keyboardType="phone-pad"
-                />
-              </View>
+              <InputForm updateFormData={updateFormData} formData={formData} label="Teléfono" placeholder="3145442377" />
 
               {/* Correo electrónico */}
-              <View style={styles.fieldContainer}>
-                <Text style={styles.label}>Correo electrónico</Text>
-                <TextInput
-                  placeholder="example@gmail.com"
-                  placeholderTextColor="#64748B"
-                  value={formData.email}
-                  onChangeText={(value) => updateFormData("email", value)}
-                  style={styles.input}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                />
-              </View>
+              <InputForm updateFormData={updateFormData} formData={formData} label="Correo electrónico" placeholder="example@gmail.com" />
 
               {/* Contraseña */}
-              <View style={styles.fieldContainer}>
-                <Text style={styles.label}>Contraseña</Text>
-                <TextInput
-                  placeholder="contraseña"
-                  placeholderTextColor="#64748B"
-                  value={formData.password}
-                  onChangeText={(value) => updateFormData("password", value)}
-                  style={styles.input}
-                  secureTextEntry
-                />
-              </View>
+              <InputForm updateFormData={updateFormData} formData={formData} label="Contraseña" placeholder="contraseña" secureTextEntry={true} />
 
               {/* Submit Button */}
               <SimpleButton onPress={handleSubmit} addStylesButton={styles.submitBtn}>
@@ -249,28 +183,6 @@ const styles = StyleSheet.create({
   },
   form: {
     gap: Math.max(screenHeight * 0.02, 14),
-  },
-  fieldContainer: {
-    gap: Math.max(screenHeight * 0.008, 6),
-  },
-  label: {
-    fontSize: Math.min(screenWidth * 0.028, 11),
-    fontWeight: "500",
-    color: "#000000",
-    lineHeight: Math.min(screenWidth * 0.045, 18),
-  },
-  input: {
-    width: "100%",
-    paddingVertical: Math.max(screenHeight * 0.018, 14),
-    paddingHorizontal: Math.max(screenWidth * 0.05, 20),
-    borderRadius: 32,
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-    backgroundColor: "#FFFFFF",
-    fontSize: Math.min(screenWidth * 0.035, 14),
-    fontWeight: "400",
-    color: "#222222ff",
-    elevation: 1,
   },
   submitBtn: {
     width: "100%",

@@ -1,4 +1,4 @@
-import { Stack, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
 import {
   StyleSheet,
   Text,
@@ -14,11 +14,6 @@ export default function TypeRegister() {
 
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right']} >
-      <Stack.Screen
-        options={{
-          headerShown: false,
-        }}
-      />
       <View style={styles.screen}>
         {/* Decorative black blobs */}
         <View style={styles.blob1Container}>
