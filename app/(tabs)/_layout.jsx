@@ -1,6 +1,6 @@
 import { Tabs } from 'expo-router';
 import { House, Milk, NotepadText, Package, Truck } from 'lucide-react-native';
-import HeaderUser from '../../components/dashboard/HeaderUser';
+import HeaderUser from '@/components/dashboard/HeaderUser';
 
 export default function TabLayout() {
   const { width: screenWidth } = require('react-native').Dimensions.get('window');

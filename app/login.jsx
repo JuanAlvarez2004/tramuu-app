@@ -1,5 +1,4 @@
 import KeyboardAwareWrapper from "@/components/KeyboardAwareWrapper";
-import SimpleButton from "@/components/SimpleButton";
 import { router } from "expo-router";
 import { Lock, Mail } from "lucide-react-native";
 import { useState } from "react";
@@ -13,7 +12,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
-import BackToButton from "../components/BackToButton";
+import { SimpleButton, BackToButton } from "@/components/ui";
 
 export default function Login() {
   const [focusedInput, setFocusedInput] = useState(null);

@@ -8,10 +8,8 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
-import BackToButton from "../../components/BackToButton";
-import SimpleButton from "../../components/SimpleButton";
-import InputForm from "../../components/InputForm";
-import KeyboardAwareWrapper from "../../components/KeyboardAwareWrapper";
+import { BackToButton, SimpleButton, InputForm } from "@/components/ui";
+import KeyboardAwareWrapper from "@/components/KeyboardAwareWrapper";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 

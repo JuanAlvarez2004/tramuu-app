@@ -1,5 +1,5 @@
 import { router } from "expo-router";
-import { Bell, CirclePlus } from "lucide-react-native";
+import { Bell, CirclePlus, ClipboardPlus } from "lucide-react-native";
 import { View, Image, Text, StyleSheet, Dimensions, TouchableOpacity } from "react-native";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
@@ -8,7 +8,7 @@ export default function HeaderUser() {
   return (
     <View style={styles.header}>
       <View style={styles.headerContent}>
-        <View style={styles.userInfo}>
+        <TouchableOpacity onPress={() => router.push("/configurationProfile")} style={styles.userInfo}>
           <Image
             source={{
               uri: "https://api.builder.io/api/v1/image/assets/TEMP/40731bff813067c3d5adf5dc52c6259f237a5ef2?width=64",
@@ -19,8 +19,11 @@ export default function HeaderUser() {
             <Text style={styles.headerTitle}>Dashboard</Text>
             <Text style={styles.headerSubtitle}>Lechero</Text>
           </View>
-        </View>
+        </TouchableOpacity>
         <View style={styles.headerActions}>
+          <TouchableOpacity onPress={() => router.push("/reports")}>
+            <ClipboardPlus />
+          </TouchableOpacity>
           <TouchableOpacity onPress={() => router.push("/milkingRecord")}>
             <CirclePlus />
           </TouchableOpacity>

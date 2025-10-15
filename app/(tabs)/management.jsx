@@ -9,7 +9,7 @@ import {
   View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import CowCard from '../../components/management/CowCard';
+import CowCard from '@/components/management/CowCard';
 import { EllipsisVertical, Funnel, Plus, Search } from 'lucide-react-native';
 import Svg, { Path } from 'react-native-svg';
 

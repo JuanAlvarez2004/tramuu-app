@@ -10,7 +10,7 @@ import Animated, {
   withTiming
 } from 'react-native-reanimated';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import SimpleButton from '../components/SimpleButton';
+import { SimpleButton } from '@/components/ui';
 
 const imageLogo = require('../assets/images/tramuu-logo.webp');
 

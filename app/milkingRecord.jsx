@@ -19,7 +19,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
-import KeyboardAwareWrapper from '../components/KeyboardAwareWrapper';
+import KeyboardAwareWrapper from '@/components/KeyboardAwareWrapper';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 

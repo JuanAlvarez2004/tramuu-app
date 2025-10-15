@@ -6,8 +6,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
-import BackToButton from "../components/BackToButton";
-import SimpleButton from "../components/SimpleButton";
+import { BackToButton, SimpleButton } from "@/components/ui";
 
 export default function TypeRegister() {
   const router = useRouter();
