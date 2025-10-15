@@ -302,8 +302,8 @@ const styles = StyleSheet.create({
   blob1: {
     position: "absolute",
     right: -100,
-    top: 200,
-    transform: [{ rotate: "-27.557deg" }, { scaleX: 1 }, { scaleY: 2 }],
+    top: -100,
+    transform: [{ rotate: "-40deg" }, { scaleX: 2.4 }, { scaleY: 2 }],
   },
   blob2: {
     position: "absolute",
