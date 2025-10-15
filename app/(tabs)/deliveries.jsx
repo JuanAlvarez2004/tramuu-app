@@ -1,8 +1,7 @@
+import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
 import {
   Calendar as CalendarIcon,
   ChevronDown,
-  ChevronLeft,
-  ChevronRight,
   Clock,
   EllipsisVertical,
   MoreHorizontal,
@@ -14,6 +13,7 @@ import { useState } from 'react';
 import {
   Alert,
   Dimensions,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -23,21 +23,26 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
+import KeyboardAwareWrapper from '../../components/KeyboardAwareWrapper';
+
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 
 export default function Deliveries() {
   const [activeTab, setActiveTab] = useState('programar'); // programar, entregar, clientes
-  const [selectedDate, setSelectedDate] = useState(14);
-  const [selectedMonth, setSelectedMonth] = useState('Enero');
-  const [selectedYear, setSelectedYear] = useState('2024');
+  const [selectedDate, setSelectedDate] = useState(new Date());
   const [selectedClient, setSelectedClient] = useState('');
   const [cantidad, setCantidad] = useState('0');
   const [unidad, setUnidad] = useState('Litros');
-  const [hora, setHora] = useState('--:-- --');
+  const [hora, setHora] = useState('');
+  const [selectedTime, setSelectedTime] = useState(new Date());
   const [direccion, setDireccion] = useState('');
   const [lecheroAsignado, setLecheroAsignado] = useState('Juan Pérez');
   const [notas, setNotas] = useState('');
+  
+  // Estados para controlar la visibilidad de los pickers
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
 
   // Datos de ejemplo
   const deliveriesData = [
@@ -61,30 +66,6 @@ export default function Deliveries() {
     }
   ];
 
-  const calendarDays = [
-    { day: 31, isCurrentMonth: false },
-    { day: 1, isCurrentMonth: true },
-    { day: 2, isCurrentMonth: true },
-    { day: 3, isCurrentMonth: true },
-    { day: 4, isCurrentMonth: true },
-    { day: 5, isCurrentMonth: true },
-    { day: 6, isCurrentMonth: true },
-    { day: 7, isCurrentMonth: true },
-    { day: 8, isCurrentMonth: true },
-    { day: 9, isCurrentMonth: true },
-    { day: 10, isCurrentMonth: true },
-    { day: 11, isCurrentMonth: true },
-    { day: 12, isCurrentMonth: true },
-    { day: 13, isCurrentMonth: true },
-    { day: 14, isCurrentMonth: true },
-    { day: 15, isCurrentMonth: true },
-    { day: 16, isCurrentMonth: true },
-    { day: 17, isCurrentMonth: true },
-    { day: 18, isCurrentMonth: true },
-    { day: 19, isCurrentMonth: true },
-    { day: 20, isCurrentMonth: true }
-  ];
-
   const Tab = ({ id, title, icon: Icon, isSelected, onPress }) => (
     <TouchableOpacity
       style={[styles.tab, isSelected && styles.tabSelected]}
@@ -97,25 +78,6 @@ export default function Deliveries() {
         </Text>
       </View>
       {isSelected && <View style={styles.tabIndicator} />}
-    </TouchableOpacity>
-  );
-
-  const CalendarDay = ({ day, isCurrentMonth, isSelected, onPress }) => (
-    <TouchableOpacity
-      style={[
-        styles.calendarDay,
-        !isCurrentMonth && styles.calendarDayInactive,
-        isSelected && styles.calendarDaySelected
-      ]}
-      onPress={onPress}
-    >
-      <Text style={[
-        styles.calendarDayText,
-        !isCurrentMonth && styles.calendarDayTextInactive,
-        isSelected && styles.calendarDayTextSelected
-      ]}>
-        {day}
-      </Text>
     </TouchableOpacity>
   );
 
@@ -173,7 +135,45 @@ export default function Deliveries() {
   };
 
   const handleTimeSelect = () => {
-    Alert.alert("Seleccionar Hora", "Funcionalidad de selección de hora en desarrollo");
+    if (Platform.OS === 'android') {
+      DateTimePickerAndroid.open({
+        value: selectedTime,
+        onChange: onTimeChange,
+        mode: 'time',
+        is24Hour: true,
+      });
+    } else {
+      setShowTimePicker(true);
+    }
+  };
+
+  const handleDateSelect = () => {
+    if (Platform.OS === 'android') {
+      DateTimePickerAndroid.open({
+        value: selectedDate,
+        onChange: onDateChange,
+        mode: 'date',
+      });
+    } else {
+      setShowDatePicker(true);
+    }
+  };
+
+  const onDateChange = (event, date) => {
+    const currentDate = date || selectedDate;
+    setShowDatePicker(false);
+    setSelectedDate(currentDate);
+  };
+
+  const onTimeChange = (event, time) => {
+    const currentTime = time || selectedTime;
+    setShowTimePicker(false);
+    setSelectedTime(currentTime);
+    
+    // Formatear la hora para mostrar
+    const hours = currentTime.getHours().toString().padStart(2, '0');
+    const minutes = currentTime.getMinutes().toString().padStart(2, '0');
+    setHora(`${hours}:${minutes}`);
   };
 
   const handleLecheroSelect = () => {
@@ -186,39 +186,24 @@ export default function Deliveries() {
 
   const renderProgramar = () => (
     <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
-      {/* Calendar Section */}
+      {/* Date Selection Section */}
       <View style={styles.calendarSection}>
         <View style={styles.calendarHeader}>
           <Text style={styles.calendarTitle}>Seleccionar Fecha</Text>
-          <View style={styles.monthNavigation}>
-            <TouchableOpacity style={styles.navButton}>
-              <ChevronLeft size={20} color="#6B7280" />
-            </TouchableOpacity>
-            <Text style={styles.monthYear}>{selectedMonth} {selectedYear}</Text>
-            <TouchableOpacity style={styles.navButton}>
-              <ChevronRight size={20} color="#6B7280" />
-            </TouchableOpacity>
-          </View>
         </View>
 
-        <View style={styles.calendarContainer}>
-          <View style={styles.weekDays}>
-            {['D', 'L', 'M', 'M', 'J', 'V', 'S'].map((day, index) => (
-              <Text key={index} style={styles.weekDayText}>{day}</Text>
-            ))}
-          </View>
-          <View style={styles.calendarGrid}>
-            {calendarDays.map((day, index) => (
-              <CalendarDay
-                key={index}
-                day={day.day}
-                isCurrentMonth={day.isCurrentMonth}
-                isSelected={day.day === selectedDate && day.isCurrentMonth}
-                onPress={() => day.isCurrentMonth && setSelectedDate(day.day)}
-              />
-            ))}
-          </View>
-        </View>
+        <TouchableOpacity style={styles.dateButton} onPress={handleDateSelect}>
+          <CalendarIcon size={20} color="#3B82F6" />
+          <Text style={styles.dateButtonText}>
+            {selectedDate.toLocaleDateString('es-ES', {
+              weekday: 'long',
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric'
+            })}
+          </Text>
+          <ChevronDown size={20} color="#6B7280" />
+        </TouchableOpacity>
       </View>
 
       {/* Nueva Entrega Form */}
@@ -258,7 +243,7 @@ export default function Deliveries() {
 
         <InputField
           label="Hora"
-          value={hora}
+          value={hora || 'Seleccionar hora'}
           onChangeText={setHora}
           placeholder="--:-- --"
           rightIcon={Clock}
@@ -304,7 +289,9 @@ export default function Deliveries() {
 
       {/* Entregas del día */}
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Entregas del 14 de Enero</Text>
+        <Text style={styles.cardTitle}>
+          Entregas del {selectedDate.toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })}
+        </Text>
         <View style={styles.deliveriesContainer}>
           {deliveriesData.map((delivery) => (
             <DeliveryCard key={delivery.id} delivery={delivery} />
@@ -334,82 +321,95 @@ export default function Deliveries() {
 
   return (
     <SafeAreaView style={styles.container} edges={["right", "left"]}>
-      {/* Decorative Background Elements */}
-      <View style={styles.backgroundContainer}>
-        <Svg
-          style={styles.blob1}
-          viewBox="0 0 220 652"
-          width={screenWidth * 0.8}
-          height={screenHeight * 0.4}
-        >
-          <Path
-            fillRule="evenodd"
-            clipRule="evenodd"
-            d="M135.567 165.28C198.708 104.625 244.335 -2.03809 331.846 0.561042C417.299 3.09907 444.691 120.968 509.756 176.393C582.479 238.342 718.835 248.925 734.109 343.226C749.407 437.67 643.249 506.96 573.999 573.017C524.535 620.2 463.564 652.135 396.482 665.282C342.269 675.906 292.183 637.63 236.959 639.071C162.029 641.025 76.1528 725.34 20.5643 675.085C-34.0802 625.683 38.9803 533.96 39.2092 460.293C39.3821 404.674 4.4645 351.341 21.7349 298.465C40.3198 241.564 92.3933 206.754 135.567 165.28Z"
-            fill="black"
+      <KeyboardAwareWrapper keyboardVerticalOffset={100}>
+
+        {/* Decorative Background Elements */}
+        <View style={styles.backgroundContainer}>
+          <Svg
+            style={styles.blob1}
+            viewBox="0 0 220 652"
+            width={screenWidth * 0.8}
+            height={screenHeight * 0.4}
+          >
+            <Path
+              fillRule="evenodd"
+              clipRule="evenodd"
+              d="M135.567 165.28C198.708 104.625 244.335 -2.03809 331.846 0.561042C417.299 3.09907 444.691 120.968 509.756 176.393C582.479 238.342 718.835 248.925 734.109 343.226C749.407 437.67 643.249 506.96 573.999 573.017C524.535 620.2 463.564 652.135 396.482 665.282C342.269 675.906 292.183 637.63 236.959 639.071C162.029 641.025 76.1528 725.34 20.5643 675.085C-34.0802 625.683 38.9803 533.96 39.2092 460.293C39.3821 404.674 4.4645 351.341 21.7349 298.465C40.3198 241.564 92.3933 206.754 135.567 165.28Z"
+              fill="black"
+            />
+          </Svg>
+          
+        </View>
+
+        {/* Header */}
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Entregas y Distribución</Text>
+          <TouchableOpacity style={styles.menuButton}>
+            <EllipsisVertical size={24} color="#111827" />
+          </TouchableOpacity>
+        </View>
+
+        {/* Tabs */}
+        <View style={styles.tabsContainer}>
+          <Tab
+            id="programar"
+            title="Programar"
+            icon={CalendarIcon}
+            isSelected={activeTab === 'programar'}
+            onPress={() => setActiveTab('programar')}
           />
-        </Svg>
-        <Svg
-          style={styles.blob2}
-          viewBox="0 0 220 652"
-          width={screenWidth * 0.8}
-          height={screenHeight * 0.4}
-        >
-          <Path
-            fillRule="evenodd"
-            clipRule="evenodd"
-            d="M135.567 165.28C198.708 104.625 244.335 -2.03809 331.846 0.561042C417.299 3.09907 444.691 120.968 509.756 176.393C582.479 238.342 718.835 248.925 734.109 343.226C749.407 437.67 643.249 506.96 573.999 573.017C524.535 620.2 463.564 652.135 396.482 665.282C342.269 675.906 292.183 637.63 236.959 639.071C162.029 641.025 76.1528 725.34 20.5643 675.085C-34.0802 625.683 38.9803 533.96 39.2092 460.293C39.3821 404.674 4.4645 351.341 21.7349 298.465C40.3198 241.564 92.3933 206.754 135.567 165.28Z"
-            fill="black"
+          <Tab
+            id="entregar"
+            title="Entregar"
+            icon={Truck}
+            isSelected={activeTab === 'entregar'}
+            onPress={() => setActiveTab('entregar')}
           />
-        </Svg>
-      </View>
+          <Tab
+            id="clientes"
+            title="Clientes"
+            icon={Users}
+            isSelected={activeTab === 'clientes'}
+            onPress={() => setActiveTab('clientes')}
+          />
+        </View>
 
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Entregas y Distribución</Text>
-        <TouchableOpacity style={styles.menuButton}>
-          <EllipsisVertical size={24} color="#111827" />
-        </TouchableOpacity>
-      </View>
+        {/* Content */}
+        <View style={styles.content}>
+          {activeTab === 'programar' && renderProgramar()}
+          {activeTab === 'entregar' && renderEntregar()}
+          {activeTab === 'clientes' && renderClientes()}
+        </View>
 
-      {/* Tabs */}
-      <View style={styles.tabsContainer}>
-        <Tab
-          id="programar"
-          title="Programar"
-          icon={CalendarIcon}
-          isSelected={activeTab === 'programar'}
-          onPress={() => setActiveTab('programar')}
-        />
-        <Tab
-          id="entregar"
-          title="Entregar"
-          icon={Truck}
-          isSelected={activeTab === 'entregar'}
-          onPress={() => setActiveTab('entregar')}
-        />
-        <Tab
-          id="clientes"
-          title="Clientes"
-          icon={Users}
-          isSelected={activeTab === 'clientes'}
-          onPress={() => setActiveTab('clientes')}
-        />
-      </View>
+        {/* Add Button */}
+        {activeTab !== 'programar' && (
+          <TouchableOpacity style={styles.addButton}>
+            <Plus size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+        )}
 
-      {/* Content */}
-      <View style={styles.content}>
-        {activeTab === 'programar' && renderProgramar()}
-        {activeTab === 'entregar' && renderEntregar()}
-        {activeTab === 'clientes' && renderClientes()}
-      </View>
-
-      {/* Add Button */}
-      {activeTab !== 'programar' && (
-        <TouchableOpacity style={styles.addButton}>
-          <Plus size={24} color="#FFFFFF" />
-        </TouchableOpacity>
-      )}
+        {/* Date Time Pickers - Solo para iOS */}
+        {Platform.OS === 'ios' && showDatePicker && (
+          <DateTimePicker
+            testID="dateTimePicker"
+            value={selectedDate}
+            mode="date"
+            display="default"
+            onChange={onDateChange}
+          />
+        )}
+        
+        {Platform.OS === 'ios' && showTimePicker && (
+          <DateTimePicker
+            testID="timeTimePicker"
+            value={selectedTime}
+            mode="time"
+            is24Hour={true}
+            display="default"
+            onChange={onTimeChange}
+          />
+        )}
+      </KeyboardAwareWrapper>
     </SafeAreaView>
   );
 }
@@ -432,12 +432,6 @@ const styles = StyleSheet.create({
     right: -50,
     top: -50,
     transform: [{ rotate: "-50deg" }, { scaleX: 2.4 }, { scaleY: 2 }],
-  },
-  blob2: {
-    position: "absolute",
-    left: -100,
-    bottom: 0,
-    transform: [{ rotate: "90deg" }, { scaleX: 1.3 }, { scaleY: 1.3 }],
   },
   header: {
     flexDirection: 'row',
@@ -525,68 +519,23 @@ const styles = StyleSheet.create({
     color: '#111827',
     marginBottom: 12,
   },
-  monthNavigation: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 16,
-  },
-  navButton: {
-    padding: 8,
-  },
-  monthYear: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#374151',
-    minWidth: 120,
-    textAlign: 'center',
-  },
-  calendarContainer: {
+  dateButton: {
     backgroundColor: '#F9FAFB',
     borderRadius: 8,
-    padding: 8,
-  },
-  weekDays: {
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: 8,
-  },
-  weekDayText: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#6B7280',
-    textAlign: 'center',
-    width: 32,
-  },
-  calendarGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-around',
-  },
-  calendarDay: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 16,
+    gap: 12,
   },
-  calendarDaySelected: {
-    backgroundColor: '#60A5FA',
-  },
-  calendarDayInactive: {
-    opacity: 0.3,
-  },
-  calendarDayText: {
+  dateButtonText: {
+    flex: 1,
     fontSize: 14,
+    color: '#111827',
     fontWeight: '500',
-    color: '#374151',
-  },
-  calendarDayTextSelected: {
-    color: '#FFFFFF',
-  },
-  calendarDayTextInactive: {
-    color: '#9CA3AF',
+    textTransform: 'capitalize',
   },
   card: {
     backgroundColor: '#FFFFFF',
