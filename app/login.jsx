@@ -1,8 +1,10 @@
+import KeyboardAwareWrapper from "@/components/KeyboardAwareWrapper";
 import SimpleButton from "@/components/SimpleButton";
 import { router } from "expo-router";
 import { Lock, Mail } from "lucide-react-native";
 import { useState } from "react";
 import {
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -17,8 +19,13 @@ export default function Login() {
   const [focusedInput, setFocusedInput] = useState(null);
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right']}>
-      <View style={styles.content}>
-        <View style={styles.containerSections}>
+      <KeyboardAwareWrapper>
+        <ScrollView 
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.content}>
+            <View style={styles.containerSections}>
           {/* Black background section with organic blobs */}
           <View style={styles.blackSection}>
             {/* Organic blob backgrounds */}
@@ -114,7 +121,7 @@ export default function Login() {
             </View>
 
             {/* Entrar Button */}
-            <SimpleButton 
+            <SimpleButton
               onPress={() => router.replace("/(tabs)")}
               addStylesButton={styles.loginButton}
             >
@@ -131,6 +138,8 @@ export default function Login() {
           </View>
         </View>
       </View>
+        </ScrollView>
+      </KeyboardAwareWrapper>
     </SafeAreaView>
   );
 }
@@ -140,6 +149,9 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#ffffff",
     height: "100%",
+  },
+  scrollContent: {
+    flexGrow: 1,
   },
   content: {
     flex: 1,
@@ -204,6 +216,7 @@ const styles = StyleSheet.create({
     elevation: 5,
     position: "relative",
     zIndex: 20,
+    minHeight: 400, // Añadir altura mínima
   },
   loginTitle: {
     color: "black",
@@ -219,7 +232,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 12,
     paddingHorizontal: 24,
-    paddingVertical: 16,
+    paddingVertical: 10,
     borderRadius: 32,
     borderWidth: 2,
     borderColor: "#E2E8F0",

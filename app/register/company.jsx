@@ -1,10 +1,7 @@
 import { useState } from "react";
 import {
   Dimensions,
-  KeyboardAvoidingView,
-  Platform,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   View,
@@ -14,6 +11,7 @@ import Svg, { Path } from "react-native-svg";
 import BackToButton from "../../components/BackToButton";
 import SimpleButton from "../../components/SimpleButton";
 import InputForm from "../../components/InputForm";
+import KeyboardAwareWrapper from "../../components/KeyboardAwareWrapper";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 
@@ -38,13 +36,8 @@ export default function CompanyRegister() {
 
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right']} >
-      <StatusBar barStyle="light-content" backgroundColor="#000000" />
-      
-      <KeyboardAvoidingView 
-        style={styles.keyboardView}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-      >
-        <ScrollView 
+      <KeyboardAwareWrapper>
+        <ScrollView
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
@@ -66,7 +59,7 @@ export default function CompanyRegister() {
                 />
               </Svg>
             </View>
-            
+
             <View style={styles.blob2Container}>
               <Svg
                 width={screenWidth * 0.45}
@@ -84,7 +77,7 @@ export default function CompanyRegister() {
             </View>
 
             {/* Back button */}
-            <BackToButton addStyles={ styles.backButton } />
+            <BackToButton addStyles={styles.backButton} />
           </View>
 
           {/* White form card */}
@@ -117,7 +110,7 @@ export default function CompanyRegister() {
             </View>
           </View>
         </ScrollView>
-      </KeyboardAvoidingView>
+      </KeyboardAwareWrapper>
     </SafeAreaView>
   );
 }

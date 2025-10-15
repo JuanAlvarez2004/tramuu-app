@@ -1,7 +1,6 @@
 
 import {
   AlertTriangle,
-  Bell,
   Camera,
   ChevronDown,
   EllipsisVertical,
@@ -21,6 +20,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
+import KeyboardAwareWrapper from "../../components/KeyboardAwareWrapper";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 
@@ -53,11 +53,11 @@ export default function Quality() {
     </TouchableOpacity>
   );
 
-  const InputField = ({ 
-    label, 
-    value, 
-    onChangeText, 
-    placeholder, 
+  const InputField = ({
+    label,
+    value,
+    onChangeText,
+    placeholder,
     range,
     suffix,
     maxValue,
@@ -168,7 +168,7 @@ export default function Quality() {
       {/* Quality Parameters Card */}
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Parámetros de Calidad</Text>
-        
+
         <View style={styles.parametersGrid}>
           <View style={styles.parameterRow}>
             <InputField
@@ -188,7 +188,7 @@ export default function Quality() {
               keyboardType="decimal-pad"
             />
           </View>
-          
+
           <View style={styles.parameterRow}>
             <InputField
               label="Lactosa %"
@@ -256,7 +256,7 @@ export default function Quality() {
         <TouchableOpacity style={styles.draftButton} onPress={handleSaveDraft}>
           <Text style={styles.draftButtonText}>Guardar Borrador</Text>
         </TouchableOpacity>
-        
+
         <TouchableOpacity style={styles.registerButton} onPress={handleRegisterTest}>
           <Text style={styles.registerButtonText}>Registrar Prueba</Text>
         </TouchableOpacity>
@@ -284,82 +284,67 @@ export default function Quality() {
 
   return (
     <SafeAreaView style={styles.container} edges={["right", "left"]}>
-      {/* Decorative Background Elements */}
-      <View style={styles.backgroundContainer}>
-        <Svg
-          style={styles.blob1}
-          viewBox="0 0 220 652"
-          width={screenWidth * 0.8}
-          height={screenHeight * 0.4}
-        >
-          <Path
-            fillRule="evenodd"
-            clipRule="evenodd"
-            d="M135.567 165.28C198.708 104.625 244.335 -2.03809 331.846 0.561042C417.299 3.09907 444.691 120.968 509.756 176.393C582.479 238.342 718.835 248.925 734.109 343.226C749.407 437.67 643.249 506.96 573.999 573.017C524.535 620.2 463.564 652.135 396.482 665.282C342.269 675.906 292.183 637.63 236.959 639.071C162.029 641.025 76.1528 725.34 20.5643 675.085C-34.0802 625.683 38.9803 533.96 39.2092 460.293C39.3821 404.674 4.4645 351.341 21.7349 298.465C40.3198 241.564 92.3933 206.754 135.567 165.28Z"
-            fill="black"
-          />
-        </Svg>
-        <Svg
-          style={styles.blob2}
-          viewBox="0 0 220 652"
-          width={screenWidth * 0.8}
-          height={screenHeight * 0.4}
-        >
-          <Path
-            fillRule="evenodd"
-            clipRule="evenodd"
-            d="M135.567 165.28C198.708 104.625 244.335 -2.03809 331.846 0.561042C417.299 3.09907 444.691 120.968 509.756 176.393C582.479 238.342 718.835 248.925 734.109 343.226C749.407 437.67 643.249 506.96 573.999 573.017C524.535 620.2 463.564 652.135 396.482 665.282C342.269 675.906 292.183 637.63 236.959 639.071C162.029 641.025 76.1528 725.34 20.5643 675.085C-34.0802 625.683 38.9803 533.96 39.2092 460.293C39.3821 404.674 4.4645 351.341 21.7349 298.465C40.3198 241.564 92.3933 206.754 135.567 165.28Z"
-            fill="black"
-          />
-        </Svg>
-      </View>
-
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Calidad de Leche</Text>
-        <View style={styles.headerActions}>
-          <TouchableOpacity style={styles.notificationButton}>
-            <Bell size={20} color="#111827" />
-            <View style={styles.notificationBadge} />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.menuButton}>
-            <EllipsisVertical size={24} color="#111827" />
-          </TouchableOpacity>
+      <KeyboardAwareWrapper keyboardVerticalOffset={100}>
+        {/* Decorative Background Elements */}
+        <View style={styles.backgroundContainer}>
+          <Svg
+            style={styles.blob1}
+            viewBox="0 0 220 652"
+            width={screenWidth * 0.8}
+            height={screenHeight * 0.4}
+          >
+            <Path
+              fillRule="evenodd"
+              clipRule="evenodd"
+              d="M135.567 165.28C198.708 104.625 244.335 -2.03809 331.846 0.561042C417.299 3.09907 444.691 120.968 509.756 176.393C582.479 238.342 718.835 248.925 734.109 343.226C749.407 437.67 643.249 506.96 573.999 573.017C524.535 620.2 463.564 652.135 396.482 665.282C342.269 675.906 292.183 637.63 236.959 639.071C162.029 641.025 76.1528 725.34 20.5643 675.085C-34.0802 625.683 38.9803 533.96 39.2092 460.293C39.3821 404.674 4.4645 351.341 21.7349 298.465C40.3198 241.564 92.3933 206.754 135.567 165.28Z"
+              fill="black"
+            />
+          </Svg>
         </View>
-      </View>
 
-      {/* Tabs */}
-      <View style={styles.tabsContainer}>
-        <Tab
-          id="pruebas"
-          title="Pruebas"
-          icon={FileText}
-          isSelected={activeTab === 'pruebas'}
-          onPress={() => setActiveTab('pruebas')}
-        />
-        <Tab
-          id="historial"
-          title="Historial"
-          icon={History}
-          isSelected={activeTab === 'historial'}
-          onPress={() => setActiveTab('historial')}
-        />
-        <Tab
-          id="alertas"
-          title="Alertas"
-          icon={AlertTriangle}
-          isSelected={activeTab === 'alertas'}
-          onPress={() => setActiveTab('alertas')}
-          hasNotification
-        />
-      </View>
+        {/* Header */}
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Calidad de Leche</Text>
+          <View style={styles.headerActions}>
+            <TouchableOpacity style={styles.menuButton}>
+              <EllipsisVertical size={24} color="#111827" />
+            </TouchableOpacity>
+          </View>
+        </View>
 
-      {/* Content */}
-      <View style={styles.content}>
-        {activeTab === 'pruebas' && renderPruebas()}
-        {activeTab === 'historial' && renderHistorial()}
-        {activeTab === 'alertas' && renderAlertas()}
-      </View>
+        {/* Tabs */}
+        <View style={styles.tabsContainer}>
+          <Tab
+            id="pruebas"
+            title="Pruebas"
+            icon={FileText}
+            isSelected={activeTab === 'pruebas'}
+            onPress={() => setActiveTab('pruebas')}
+          />
+          <Tab
+            id="historial"
+            title="Historial"
+            icon={History}
+            isSelected={activeTab === 'historial'}
+            onPress={() => setActiveTab('historial')}
+          />
+          <Tab
+            id="alertas"
+            title="Alertas"
+            icon={AlertTriangle}
+            isSelected={activeTab === 'alertas'}
+            onPress={() => setActiveTab('alertas')}
+            hasNotification
+          />
+        </View>
+
+        {/* Content */}
+        <View style={styles.content}>
+          {activeTab === 'pruebas' && renderPruebas()}
+          {activeTab === 'historial' && renderHistorial()}
+          {activeTab === 'alertas' && renderAlertas()}
+        </View>
+      </KeyboardAwareWrapper>
     </SafeAreaView>
   );
 }
@@ -382,12 +367,6 @@ const styles = StyleSheet.create({
     right: -130,
     top: 300,
     transform: [{ rotate: "-15.557deg" }, { scaleX: 1 }, { scaleY: 2 }],
-  },
-  blob2: {
-    position: "absolute",
-    left: -100,
-    bottom: -50,
-    transform: [{ rotate: "90deg" }, { scaleX: 1.3 }, { scaleY: 1.3 }],
   },
   header: {
     flexDirection: 'row',
