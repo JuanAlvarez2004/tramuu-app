@@ -27,7 +27,9 @@ export default function HeaderUser() {
           <TouchableOpacity onPress={() => router.push("/milkingRecord")}>
             <CirclePlus />
           </TouchableOpacity>
-          <Bell />
+          <TouchableOpacity onPress={() => router.push("/notifications")}>
+            <Bell />
+          </TouchableOpacity>
         </View>
       </View>
     </View>
