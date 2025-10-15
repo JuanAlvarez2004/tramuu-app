@@ -7,7 +7,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import Svg, { G, Path } from "react-native-svg";
+import Svg, { Path } from "react-native-svg";
 import { Droplet, ChartLine, Syringe, TriangleAlert, Clock, Blocks, User } from "lucide-react-native";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");

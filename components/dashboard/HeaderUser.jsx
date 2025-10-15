@@ -1,5 +1,6 @@
+import { router } from "expo-router";
 import { Bell, CirclePlus } from "lucide-react-native";
-import { View, Image, Text, StyleSheet, Dimensions } from "react-native";
+import { View, Image, Text, StyleSheet, Dimensions, TouchableOpacity } from "react-native";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 
@@ -20,7 +21,9 @@ export default function HeaderUser() {
           </View>
         </View>
         <View style={styles.headerActions}>
-          <CirclePlus />
+          <TouchableOpacity onPress={() => router.push("/milkingRecord")}>
+            <CirclePlus />
+          </TouchableOpacity>
           <Bell />
         </View>
       </View>
@@ -67,7 +70,7 @@ const styles = StyleSheet.create({
   headerActions: {
     flexDirection: "row",
     alignItems: "center",
-    gap: Math.max(12, screenWidth * 0.03),
+    gap: 20,
   },
 })
 
