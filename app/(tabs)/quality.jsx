@@ -302,16 +302,6 @@ export default function Quality() {
           </Svg>
         </View>
 
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Calidad de Leche</Text>
-          <View style={styles.headerActions}>
-            <TouchableOpacity style={styles.menuButton}>
-              <EllipsisVertical size={24} color="#111827" />
-            </TouchableOpacity>
-          </View>
-        </View>
-
         {/* Tabs */}
         <View style={styles.tabsContainer}>
           <Tab
@@ -367,43 +357,6 @@ const styles = StyleSheet.create({
     right: -130,
     top: 300,
     transform: [{ rotate: "-15.557deg" }, { scaleX: 1 }, { scaleY: 2 }],
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-    zIndex: 10,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#111827',
-  },
-  headerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  notificationButton: {
-    position: 'relative',
-    padding: 4,
-  },
-  notificationBadge: {
-    position: 'absolute',
-    top: 2,
-    right: 2,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#EF4444',
-  },
-  menuButton: {
-    padding: 4,
   },
   tabsContainer: {
     flexDirection: 'row',

@@ -1,8 +1,7 @@
 import {
   Calendar,
   ChevronDown,
-  Clock,
-  EllipsisVertical,
+  Clock, 
   Package,
   Thermometer,
   TrendingUp
@@ -243,14 +242,6 @@ export default function Inventory() {
         </Svg>
       </View>
 
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Inventario</Text>
-        <TouchableOpacity style={styles.menuButton}>
-          <EllipsisVertical size={24} color="#111827" />
-        </TouchableOpacity>
-      </View>
-
       {/* Tabs */}
       <View style={styles.tabsContainer}>
         <Tab
@@ -310,25 +301,6 @@ const styles = StyleSheet.create({
     left: -100,
     bottom: -100,
     transform: [{ rotate: "90deg" }, { scaleX: 1.3 }, { scaleY: 1.3 }],
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-    zIndex: 10,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#111827',
-  },
-  menuButton: {
-    padding: 4,
   },
   tabsContainer: {
     flexDirection: 'row',

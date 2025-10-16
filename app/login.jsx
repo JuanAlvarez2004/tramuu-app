@@ -147,10 +147,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#ffffff",
-    height: "100%",
   },
   scrollContent: {
-    flexGrow: 1,
+    flex: 1,
   },
   content: {
     flex: 1,
@@ -210,7 +209,6 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 40,
     marginTop: -112,
     paddingTop: 60,
-    paddingBottom: 45,
     paddingHorizontal: 20,
     elevation: 5,
     position: "relative",

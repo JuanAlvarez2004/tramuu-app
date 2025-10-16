@@ -161,11 +161,10 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 40,
     borderTopLeftRadius: 40,
     paddingHorizontal: Math.max(screenWidth * 0.05, 20),
-    paddingVertical: Math.max(screenHeight * 0.03, 24),
-    marginTop: -Math.max(screenHeight * 0.06, 40),
+    paddingTop: 40,
+    marginTop: 0,
     position: "relative",
     zIndex: 1,
-    marginBottom: Math.max(screenHeight * 0.05, 30),
   },
   title: {
     fontSize: Math.min(screenWidth * 0.065, 26),

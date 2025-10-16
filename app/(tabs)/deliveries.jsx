@@ -3,7 +3,6 @@ import {
   Calendar as CalendarIcon,
   ChevronDown,
   Clock,
-  EllipsisVertical,
   MoreHorizontal,
   Plus,
   Truck,
@@ -338,15 +337,6 @@ export default function Deliveries() {
               fill="black"
             />
           </Svg>
-          
-        </View>
-
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Entregas y Distribución</Text>
-          <TouchableOpacity style={styles.menuButton}>
-            <EllipsisVertical size={24} color="#111827" />
-          </TouchableOpacity>
         </View>
 
         {/* Tabs */}
@@ -432,25 +422,6 @@ const styles = StyleSheet.create({
     right: -50,
     top: -50,
     transform: [{ rotate: "-50deg" }, { scaleX: 2.4 }, { scaleY: 2 }],
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-    zIndex: 10,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#111827',
-  },
-  menuButton: {
-    padding: 4,
   },
   tabsContainer: {
     flexDirection: 'row',

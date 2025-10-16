@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import CowCard from '@/components/management/CowCard';
-import { EllipsisVertical, Funnel, Plus, Search } from 'lucide-react-native';
+import { Funnel, Plus, Search } from 'lucide-react-native';
 import Svg, { Path } from 'react-native-svg';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
@@ -106,14 +106,6 @@ export default function Management() {
         </Svg>
       </View>
 
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Gestión de Vacas</Text>
-        <TouchableOpacity style={styles.menuButton}>
-          <EllipsisVertical />
-        </TouchableOpacity>
-      </View>
-
       {/* Search Bar */}
       <View style={styles.searchContainer}>
         <View style={styles.searchInputContainer}>
@@ -170,24 +162,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F9FAFB',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#111827',
-  },
-  menuButton: {
-    padding: 4,
   },
   searchContainer: {
     paddingHorizontal: 20,
