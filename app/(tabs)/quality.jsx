@@ -1,33 +1,32 @@
 
+import KeyboardAwareWrapper from "@/components/KeyboardAwareWrapper";
+import { qualityService } from '@/services';
+import * as ImagePicker from 'expo-image-picker';
 import {
   AlertTriangle,
   Camera,
   ChevronDown,
-  EllipsisVertical,
   FileText,
   History,
   RefreshCw,
   X
 } from 'lucide-react-native';
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Dimensions,
+  Image,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  View,
-  ActivityIndicator,
-  RefreshControl,
-  Image
+  View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
-import * as ImagePicker from 'expo-image-picker';
-import KeyboardAwareWrapper from "@/components/KeyboardAwareWrapper";
-import { qualityService } from '@/services';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 
@@ -66,7 +65,8 @@ export default function Quality() {
       console.log('📋 Datos recibidos:', data);
       const testsArray = data.tests || data || [];
       console.log('📋 Pruebas procesadas:', testsArray.length);
-      setTests(testsArray);
+      // Ensure testsArray is actually an array
+      setTests(Array.isArray(testsArray) ? testsArray : []);
     } catch (error) {
       console.error('❌ Error loading quality tests:', error);
       console.error('Error details:', {
@@ -75,6 +75,8 @@ export default function Quality() {
         status: error.response?.status
       });
       Alert.alert('Error', 'No se pudieron cargar las pruebas de calidad');
+      // Set empty array on error
+      setTests([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -530,7 +532,7 @@ export default function Quality() {
       );
     }
 
-    if (tests.length === 0) {
+    if (!tests || !Array.isArray(tests) || tests.length === 0) {
       return (
         <View style={styles.emptyState}>
           <History size={48} color="#9CA3AF" />

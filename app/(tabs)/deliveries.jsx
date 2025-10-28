@@ -1,33 +1,33 @@
+import KeyboardAwareWrapper from '@/components/KeyboardAwareWrapper';
+import { deliveriesService, employeesService } from '@/services';
 import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
 import {
+  AlertCircle,
   Calendar as CalendarIcon,
   ChevronDown,
   Clock,
   MoreHorizontal,
   Plus,
-  Truck,
-  Users,
   RefreshCw,
-  AlertCircle
+  Truck,
+  Users
 } from 'lucide-react-native';
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Dimensions,
   Platform,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  View,
-  ActivityIndicator,
-  RefreshControl
+  View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
-import KeyboardAwareWrapper from '@/components/KeyboardAwareWrapper';
-import { deliveriesService, employeesService } from '@/services';
 
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
@@ -81,7 +81,14 @@ export default function Deliveries() {
       }
     } catch (err) {
       console.error('Error loading deliveries:', err);
-      setError(err.message || 'Error al cargar las entregas');
+      // Check if it's a 400/404 error indicating endpoint not implemented
+      if (err.status === 400 || err.status === 404) {
+        console.log('⚠️ Endpoint de entregas no implementado en el backend');
+        setError('Funcionalidad de entregas en desarrollo');
+        setDeliveries([]);
+      } else {
+        setError(err.message || 'Error al cargar las entregas');
+      }
     } finally {
       setLoading(false);
     }
@@ -90,8 +97,11 @@ export default function Deliveries() {
   const loadDeliveries = async (params = {}) => {
     try {
       const data = await deliveriesService.getDeliveries(params);
-      setDeliveries(data || []);
+      setDeliveries(Array.isArray(data) ? data : []);
     } catch (error) {
+      // Don't throw, just set empty array and let parent handle error
+      console.log('⚠️ No se pudieron cargar las entregas:', error.message);
+      setDeliveries([]);
       throw error;
     }
   };
@@ -99,14 +109,16 @@ export default function Deliveries() {
   const loadEmployees = async () => {
     try {
       const data = await employeesService.getEmployees();
-      setEmployees(data || []);
+      const employeesArray = Array.isArray(data) ? data : [];
+      setEmployees(employeesArray);
       // Auto-select first employee if available
-      if (data && data.length > 0 && !selectedEmployeeId) {
-        setSelectedEmployeeId(data[0].id);
-        setLecheroAsignado(`${data[0].firstName} ${data[0].lastName}`);
+      if (employeesArray.length > 0 && !selectedEmployeeId) {
+        setSelectedEmployeeId(employeesArray[0].id);
+        setLecheroAsignado(`${employeesArray[0].firstName} ${employeesArray[0].lastName}`);
       }
     } catch (error) {
       console.error('Error loading employees:', error);
+      setEmployees([]);
     }
   };
 
@@ -340,8 +352,17 @@ export default function Deliveries() {
       );
     } catch (error) {
       console.error('Error creating delivery:', error);
-      const message = error.response?.data?.message || error.message || 'Error al programar la entrega';
-      Alert.alert('Error', message);
+      
+      // Check if endpoint is not implemented
+      if (error.status === 400 || error.status === 404) {
+        Alert.alert(
+          'Funcionalidad en desarrollo',
+          'El registro de entregas estará disponible próximamente'
+        );
+      } else {
+        const message = error.response?.data?.message || error.message || 'Error al programar la entrega';
+        Alert.alert('Error', message);
+      }
     } finally {
       setSaving(false);
     }
@@ -508,9 +529,14 @@ export default function Deliveries() {
     if (error) {
       return (
         <View style={styles.errorContainer}>
-          <AlertCircle size={48} color="#EF4444" />
-          <Text style={styles.errorTitle}>Error al cargar entregas</Text>
-          <Text style={styles.errorText}>{error}</Text>
+          <AlertCircle size={48} color="#F59E0B" />
+          <Text style={styles.errorTitle}>Funcionalidad en desarrollo</Text>
+          <Text style={styles.errorText}>
+            {error === 'Funcionalidad de entregas en desarrollo' 
+              ? 'La gestión de entregas estará disponible próximamente'
+              : error
+            }
+          </Text>
           <TouchableOpacity style={styles.retryButton} onPress={loadData}>
             <RefreshCw size={20} color="#3B82F6" />
             <Text style={styles.retryText}>Reintentar</Text>
