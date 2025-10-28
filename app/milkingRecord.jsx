@@ -1,11 +1,13 @@
-import { Stack } from 'expo-router';
+import { Stack, router } from 'expo-router';
 import {
   Check,
   List,
   Moon,
   Sun,
   User,
-  Zap
+  Zap,
+  Plus,
+  Trash2
 } from 'lucide-react-native';
 import { useState } from 'react';
 import {
@@ -15,11 +17,15 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
+  ActivityIndicator,
+  Alert
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 import KeyboardAwareWrapper from '@/components/KeyboardAwareWrapper';
+import CowSelector from '@/components/milking/CowSelector';
+import { milkingsService } from '@/services';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 
@@ -29,6 +35,142 @@ export default function MilkingRecord() {
   const [cowCount, setCowCount] = useState('25');
   const [totalLiters, setTotalLiters] = useState('180.5');
   const [notes, setNotes] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  // Individual milking state
+  const [selectedCow, setSelectedCow] = useState(null);
+  const [individualLiters, setIndividualLiters] = useState('');
+
+  // Massive milking state
+  const [massiveCows, setMassiveCows] = useState([]);
+  const [showCowSelector, setShowCowSelector] = useState(false);
+
+  const handleRegisterMilking = async () => {
+    try {
+      setLoading(true);
+
+      // Get current date and time
+      const now = new Date();
+      const milkingDate = now.toISOString().split('T')[0]; // YYYY-MM-DD
+      const milkingTime = now.toTimeString().split(' ')[0].substring(0, 5); // HH:mm
+
+      const baseData = {
+        milkingDate,
+        milkingTime,
+        shift: selectedShift,
+        notes: notes.trim() || undefined
+      };
+
+      // Validation and API call based on type
+      if (selectedType === 'rapid') {
+        if (!cowCount.trim() || parseInt(cowCount) <= 0) {
+          Alert.alert('Error', 'Por favor ingresa el número de vacas');
+          return;
+        }
+        if (!totalLiters.trim() || parseFloat(totalLiters) <= 0) {
+          Alert.alert('Error', 'Por favor ingresa la cantidad de litros');
+          return;
+        }
+
+        await milkingsService.createRapidMilking({
+          ...baseData,
+          cowCount: parseInt(cowCount),
+          totalLiters: parseFloat(totalLiters),
+        });
+
+      } else if (selectedType === 'individual') {
+        if (!selectedCow) {
+          Alert.alert('Error', 'Por favor selecciona una vaca');
+          return;
+        }
+        if (!individualLiters.trim() || parseFloat(individualLiters) <= 0) {
+          Alert.alert('Error', 'Por favor ingresa la cantidad de litros');
+          return;
+        }
+
+        await milkingsService.createIndividualMilking({
+          ...baseData,
+          cows: [{
+            cowId: selectedCow.id,
+            liters: parseFloat(individualLiters),
+          }]
+        });
+
+      } else if (selectedType === 'massive') {
+        if (massiveCows.length === 0) {
+          Alert.alert('Error', 'Por favor agrega al menos una vaca');
+          return;
+        }
+
+        const allHaveLiters = massiveCows.every(c => c.liters && parseFloat(c.liters) > 0);
+        if (!allHaveLiters) {
+          Alert.alert('Error', 'Todas las vacas deben tener litros registrados');
+          return;
+        }
+
+        const totalMassiveLiters = massiveCows.reduce((sum, c) => sum + parseFloat(c.liters), 0);
+
+        await milkingsService.createMassiveMilking({
+          ...baseData,
+          cowIds: massiveCows.map(c => c.id),
+          totalLiters: totalMassiveLiters,
+        });
+      }
+
+      // Success
+      Alert.alert(
+        'Registro exitoso',
+        'El ordeño ha sido registrado correctamente',
+        [
+          {
+            text: 'OK',
+            onPress: () => {
+              resetForm();
+              router.back();
+            }
+          }
+        ]
+      );
+    } catch (err) {
+      console.error('Error registering milking:', err);
+      Alert.alert('Error', err.message || 'Error al registrar el ordeño');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const resetForm = () => {
+    setCowCount('25');
+    setTotalLiters('180.5');
+    setIndividualLiters('');
+    setNotes('');
+    setSelectedCow(null);
+    setMassiveCows([]);
+  };
+
+  const handleCowSelection = (cow) => {
+    if (selectedType === 'individual') {
+      setSelectedCow(cow);
+    }
+  };
+
+  const handleMassiveCowSelection = (cows) => {
+    const cowsWithLiters = cows.map(cow => ({
+      ...cow,
+      liters: massiveCows.find(c => c.id === cow.id)?.liters || ''
+    }));
+    setMassiveCows(cowsWithLiters);
+  };
+
+  const updateMassiveCowLiters = (cowId, liters) => {
+    setMassiveCows(massiveCows.map(cow =>
+      cow.id === cowId ? { ...cow, liters } : cow
+    ));
+  };
+
+  const removeMassiveCow = (cowId) => {
+    setMassiveCows(massiveCows.filter(cow => cow.id !== cowId));
+  };
 
   const TypeTab = ({ id, icon: Icon, title, isSelected, onPress }) => (
     <TouchableOpacity
@@ -166,23 +308,98 @@ export default function MilkingRecord() {
             </View>
           </View>
 
-          {/* Cow Count Input */}
-          <InputField
-            label="Número de Vacas"
-            value={cowCount}
-            onChangeText={setCowCount}
-            placeholder="25"
-            rightIcon={User}
-          />
+          {/* Conditional Inputs based on type */}
+          {selectedType === 'rapid' && (
+            <>
+              <InputField
+                label="Número de Vacas"
+                value={cowCount}
+                onChangeText={setCowCount}
+                placeholder="25"
+                rightIcon={User}
+              />
+              <InputField
+                label="Litros Totales"
+                value={totalLiters}
+                onChangeText={setTotalLiters}
+                placeholder="180.5"
+                suffix="L"
+              />
+            </>
+          )}
 
-          {/* Total Liters Input */}
-          <InputField
-            label="Litros Totales"
-            value={totalLiters}
-            onChangeText={setTotalLiters}
-            placeholder="180.5"
-            suffix="L"
-          />
+          {selectedType === 'individual' && (
+            <>
+              {/* Cow Selection */}
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Vaca Seleccionada</Text>
+                <TouchableOpacity
+                  style={styles.selectCowButton}
+                  onPress={() => setShowCowSelector(true)}
+                >
+                  <User size={20} color="#6B7280" />
+                  <Text style={[styles.selectCowText, selectedCow && styles.selectCowTextSelected]}>
+                    {selectedCow ? `${selectedCow.tag || selectedCow.id} - ${selectedCow.breed}` : 'Seleccionar vaca'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Liters Input */}
+              <InputField
+                label="Litros"
+                value={individualLiters}
+                onChangeText={setIndividualLiters}
+                placeholder="28.5"
+                suffix="L"
+              />
+            </>
+          )}
+
+          {selectedType === 'massive' && (
+            <>
+              {/* Add Cow Button */}
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Vacas ({massiveCows.length})</Text>
+                <TouchableOpacity
+                  style={styles.addCowButton}
+                  onPress={() => setShowCowSelector(true)}
+                >
+                  <Plus size={20} color="#FFFFFF" />
+                  <Text style={styles.addCowButtonText}>Agregar Vacas</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Massive Cows List */}
+              {massiveCows.length > 0 && (
+                <View style={styles.massiveCowsList}>
+                  {massiveCows.map((cow) => (
+                    <View key={cow.id} style={styles.massiveCowItem}>
+                      <View style={styles.massiveCowInfo}>
+                        <Text style={styles.massiveCowId}>{cow.tag || cow.id}</Text>
+                        <Text style={styles.massiveCowBreed}>{cow.breed}</Text>
+                      </View>
+                      <View style={styles.massiveCowInput}>
+                        <TextInput
+                          style={styles.massiveCowLitersInput}
+                          value={cow.liters}
+                          onChangeText={(text) => updateMassiveCowLiters(cow.id, text)}
+                          placeholder="0.0"
+                          keyboardType="decimal-pad"
+                        />
+                        <Text style={styles.massiveCowLitersSuffix}>L</Text>
+                      </View>
+                      <TouchableOpacity
+                        onPress={() => removeMassiveCow(cow.id)}
+                        style={styles.removeCowButton}
+                      >
+                        <Trash2 size={18} color="#EF4444" />
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </View>
+              )}
+            </>
+          )}
 
           {/* Notes Input */}
           <View style={styles.inputContainer}>
@@ -202,13 +419,32 @@ export default function MilkingRecord() {
           </View>
 
           {/* Register Button */}
-          <TouchableOpacity style={styles.registerButton}>
-            <Check size={20} color="#FFFFFF" />
-            <Text style={styles.registerButtonText}>Registrar Ordeño</Text>
+          <TouchableOpacity
+            style={[styles.registerButton, loading && styles.registerButtonDisabled]}
+            onPress={handleRegisterMilking}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <>
+                <Check size={20} color="#FFFFFF" />
+                <Text style={styles.registerButtonText}>Registrar Ordeño</Text>
+              </>
+            )}
           </TouchableOpacity>
 
           <View style={styles.bottomSpacing} />
         </ScrollView>
+
+        {/* Cow Selector Modal */}
+        <CowSelector
+          visible={showCowSelector}
+          onClose={() => setShowCowSelector(false)}
+          onSelect={selectedType === 'individual' ? handleCowSelection : handleMassiveCowSelection}
+          selectedCows={selectedType === 'massive' ? massiveCows : (selectedCow ? [selectedCow] : [])}
+          multiSelect={selectedType === 'massive'}
+        />
       </KeyboardAwareWrapper>
     </SafeAreaView>
   );
@@ -378,6 +614,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#FFFFFF',
+  },
+  registerButtonDisabled: {
+    opacity: 0.6,
   },
   bottomSpacing: {
     height: 40,

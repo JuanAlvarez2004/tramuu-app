@@ -1,6 +1,6 @@
 import KeyboardAwareWrapper from "@/components/KeyboardAwareWrapper";
 import { router } from "expo-router";
-import { Lock, Mail } from "lucide-react-native";
+import { Lock, Mail, AlertCircle } from "lucide-react-native";
 import { useState } from "react";
 import {
   ScrollView,
@@ -9,13 +9,47 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  ActivityIndicator,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
 import { SimpleButton, BackToButton } from "@/components/ui";
+import { authService } from "@/services";
 
 export default function Login() {
   const [focusedInput, setFocusedInput] = useState(null);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleLogin = async () => {
+    // Validation
+    if (!email.trim() || !password.trim()) {
+      setError("Por favor ingresa email y contraseña");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError("");
+
+      await authService.login(email.trim(), password);
+
+      // Navigate to main app
+      router.replace("/(tabs)");
+    } catch (err) {
+      console.error("Login error:", err);
+      const errorMessage = err.message || "Error al iniciar sesión. Verifica tus credenciales.";
+      setError(errorMessage);
+
+      // Also show alert for better UX
+      Alert.alert("Error de inicio de sesión", errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right']}>
       <KeyboardAwareWrapper>
@@ -76,6 +110,14 @@ export default function Login() {
             <Text style={styles.loginTitle}>Inicio de sesión</Text>
 
             <View style={styles.inputsContainer}>
+              {/* Error Message */}
+              {error ? (
+                <View style={styles.errorContainer}>
+                  <AlertCircle size={16} color="#EF4444" />
+                  <Text style={styles.errorText}>{error}</Text>
+                </View>
+              ) : null}
+
               {/* Email Input */}
               <View style={[
                 styles.inputContainer,
@@ -88,8 +130,14 @@ export default function Login() {
                   style={styles.input}
                   keyboardType="email-address"
                   autoCapitalize="none"
+                  value={email}
+                  onChangeText={(text) => {
+                    setEmail(text);
+                    setError("");
+                  }}
                   onFocus={() => setFocusedInput('email')}
                   onBlur={() => setFocusedInput(null)}
+                  editable={!loading}
                 />
               </View>
 
@@ -104,8 +152,14 @@ export default function Login() {
                   placeholderTextColor="#64748B"
                   style={styles.input}
                   secureTextEntry
+                  value={password}
+                  onChangeText={(text) => {
+                    setPassword(text);
+                    setError("");
+                  }}
                   onFocus={() => setFocusedInput('password')}
                   onBlur={() => setFocusedInput(null)}
+                  editable={!loading}
                 />
               </View>
 
@@ -121,10 +175,15 @@ export default function Login() {
 
             {/* Entrar Button */}
             <SimpleButton
-              onPress={() => router.replace("/(tabs)")}
-              addStylesButton={styles.loginButton}
+              onPress={handleLogin}
+              addStylesButton={[styles.loginButton, loading && styles.buttonDisabled]}
+              disabled={loading}
             >
-              <Text style={styles.loginButtonText}>Entrar</Text>
+              {loading ? (
+                <ActivityIndicator color="white" />
+              ) : (
+                <Text style={styles.loginButtonText}>Entrar</Text>
+              )}
             </SimpleButton>
 
             {/* Registrar Button */}
@@ -223,6 +282,24 @@ const styles = StyleSheet.create({
   },
   inputsContainer: {
     marginBottom: 12,
+  },
+  errorContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "#FEE2E2",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  errorText: {
+    color: "#EF4444",
+    fontSize: 13,
+    flex: 1,
+  },
+  buttonDisabled: {
+    opacity: 0.6,
   },
   inputContainer: {
     flexDirection: "row",
