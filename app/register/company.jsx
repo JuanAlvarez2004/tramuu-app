@@ -5,11 +5,16 @@ import {
   StyleSheet,
   Text,
   View,
+  ActivityIndicator,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
 import { BackToButton, SimpleButton, InputForm } from "@/components/ui";
 import KeyboardAwareWrapper from "@/components/KeyboardAwareWrapper";
+import { router } from "expo-router";
+import { authService } from "@/services";
+import { AlertCircle } from "lucide-react-native";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 
@@ -22,14 +27,69 @@ export default function CompanyRegister() {
     email: "",
     password: "",
   });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const handleSubmit = () => {
-    console.log("Form submitted:", formData);
-    // Handle registration logic here
+  const handleSubmit = async () => {
+    // Validation
+    if (!formData.nombre.trim()) {
+      setError("El nombre de la empresa es requerido");
+      return;
+    }
+    if (!formData.nitId.trim()) {
+      setError("El NIT/ID es requerido");
+      return;
+    }
+    if (!formData.email.trim()) {
+      setError("El email es requerido");
+      return;
+    }
+    if (!formData.password || formData.password.length < 6) {
+      setError("La contraseña debe tener al menos 6 caracteres");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError("");
+
+      // Map form data to API expected format
+      const registrationData = {
+        name: formData.nombre.trim(),
+        nitId: formData.nitId.trim(),
+        address: formData.direccion.trim() || undefined,
+        phone: formData.telefono.trim() || undefined,
+        email: formData.email.trim(),
+        password: formData.password,
+      };
+
+      await authService.registerCompany(registrationData);
+
+      // Show success message
+      Alert.alert(
+        "Registro exitoso",
+        "Tu empresa ha sido registrada correctamente",
+        [
+          {
+            text: "OK",
+            onPress: () => router.replace("/(tabs)"),
+          },
+        ]
+      );
+    } catch (err) {
+      console.error("Registration error:", err);
+      const errorMessage = err.message || "Error al registrar la empresa. Intenta nuevamente.";
+      setError(errorMessage);
+
+      Alert.alert("Error de registro", errorMessage);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const updateFormData = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+    setError("");
   };
 
   return (
@@ -82,28 +142,44 @@ export default function CompanyRegister() {
           <View style={styles.formCard}>
             <Text style={styles.title}>Registro</Text>
 
+            {/* Error Message */}
+            {error ? (
+              <View style={styles.errorContainer}>
+                <AlertCircle size={16} color="#EF4444" />
+                <Text style={styles.errorText}>{error}</Text>
+              </View>
+            ) : null}
+
             <View style={styles.form}>
               {/* Nombre */}
-              <InputForm updateFormData={updateFormData} formData={formData} label="Nombre" placeholder="Lacteos S.A" />
+              <InputForm updateFormData={updateFormData} formData={formData} name="nombre" label="Nombre" placeholder="Lacteos S.A" />
 
               {/* NIT/ID */}
-              <InputForm updateFormData={updateFormData} formData={formData} label="NIT/ID" placeholder="800197268-4" />
+              <InputForm updateFormData={updateFormData} formData={formData} name="nitId" label="NIT/ID" placeholder="800197268-4" />
 
               {/* Dirección */}
-              <InputForm updateFormData={updateFormData} formData={formData} label="Dirección" placeholder="Cra 2 Bis Cl 22" />
+              <InputForm updateFormData={updateFormData} formData={formData} name="direccion" label="Dirección" placeholder="Cra 2 Bis Cl 22" />
 
               {/* Teléfono */}
-              <InputForm updateFormData={updateFormData} formData={formData} label="Teléfono" placeholder="3145442377" />
+              <InputForm updateFormData={updateFormData} formData={formData} name="telefono" label="Teléfono" placeholder="3145442377" />
 
               {/* Correo electrónico */}
-              <InputForm updateFormData={updateFormData} formData={formData} label="Correo electrónico" placeholder="example@gmail.com" />
+              <InputForm updateFormData={updateFormData} formData={formData} name="email" label="Correo electrónico" placeholder="example@gmail.com" />
 
               {/* Contraseña */}
-              <InputForm updateFormData={updateFormData} formData={formData} label="Contraseña" placeholder="contraseña" secureTextEntry={true} />
+              <InputForm updateFormData={updateFormData} formData={formData} name="password" label="Contraseña" placeholder="contraseña" secureTextEntry={true} />
 
               {/* Submit Button */}
-              <SimpleButton onPress={handleSubmit} addStylesButton={styles.submitBtn}>
-                <Text style={styles.submitBtnText}>Registrar</Text>
+              <SimpleButton
+                onPress={handleSubmit}
+                addStylesButton={[styles.submitBtn, loading && styles.buttonDisabled]}
+                disabled={loading}
+              >
+                {loading ? (
+                  <ActivityIndicator color="white" />
+                ) : (
+                  <Text style={styles.submitBtnText}>Registrar</Text>
+                )}
               </SimpleButton>
             </View>
           </View>
@@ -173,6 +249,24 @@ const styles = StyleSheet.create({
   },
   form: {
     gap: Math.max(screenHeight * 0.02, 14),
+  },
+  errorContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "#FEE2E2",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  errorText: {
+    color: "#EF4444",
+    fontSize: 13,
+    flex: 1,
+  },
+  buttonDisabled: {
+    opacity: 0.6,
   },
   submitBtn: {
     width: "100%",
