@@ -1,21 +1,24 @@
 import { StyleSheet, Text, TextInput, View } from "react-native";
 
-export default function InputForm({ 
-  updateFormData, 
-  formData, 
-  label, 
-  placeholder, 
+export default function InputForm({
+  updateFormData,
+  formData,
+  label,
+  name,
+  placeholder,
   secureTextEntry = false,
 }) {
-  
+  // Use name prop if provided, otherwise fall back to label (for backward compatibility)
+  const fieldName = name || label;
+
   return (
     <View style={styles.fieldContainer}>
       <Text style={styles.label}>{label}</Text>
       <TextInput
         placeholder={placeholder}
         placeholderTextColor="#64748B"
-        value={formData[label]}
-        onChangeText={(value) => updateFormData(label, value)}
+        value={formData[fieldName]}
+        onChangeText={(value) => updateFormData(fieldName, value)}
         style={styles.input}
         secureTextEntry={secureTextEntry}
       />

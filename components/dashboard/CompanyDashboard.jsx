@@ -9,99 +9,277 @@ import {
   Truck,
   Users
 } from 'lucide-react-native';
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Dimensions,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
+  View,
+  ActivityIndicator,
+  RefreshControl
 } from 'react-native';
 import { LineChart } from 'react-native-chart-kit';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import Svg, { Path } from 'react-native-svg';
+import { dashboardService } from '@/services';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 
 export default function CompanyDashboard() {
-  const [selectedPeriod, setSelectedPeriod] = useState('Día');
+  const [selectedPeriod, setSelectedPeriod] = useState('Semana');
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState(null);
+  const [chartTitle, setChartTitle] = useState('Producción Semanal');
+  const [chartLoading, setChartLoading] = useState(false);
 
-  // Datos del dashboard
-  const dashboardData = {
+  // Datos del dashboard (con valores por defecto)
+  const [dashboardData, setDashboardData] = useState({
     produccionHoy: {
-      value: '2,840L',
-      change: '+12% vs ayer',
+      value: '0L',
+      change: '+0% vs ayer',
       isPositive: true
     },
     calidadPromedio: {
-      value: '94%',
-      label: 'Excelente',
+      value: '0%',
+      label: 'Cargando...',
       isPositive: true
     },
     entregasHoy: {
-      value: '8',
-      pendientes: '3 pendientes'
+      value: '0',
+      pendientes: '0 pendientes'
     },
     lecherosActivos: {
-      value: '24',
-      total: 'de 28 total'
+      value: '0',
+      total: 'de 0 total'
+    }
+  });
+
+  // Load dashboard data from backend
+  const loadDashboardData = async () => {
+    try {
+      const data = await dashboardService.getSummary();
+      console.log('Dashboard data received:', data);
+
+      // Map backend data to frontend format
+      setDashboardData({
+        produccionHoy: {
+          value: `${data.today?.totalLiters || 0}L`,
+          change: `${data.today?.milkingsAM || 0} AM / ${data.today?.milkingsPM || 0} PM`,
+          isPositive: true
+        },
+        calidadPromedio: {
+          value: `${data.today?.avgPerCow || 0}L`,
+          label: 'Por vaca',
+          isPositive: true
+        },
+        entregasHoy: {
+          value: String(data.thisWeek?.totalLiters || 0),
+          pendientes: 'Esta semana'
+        },
+        lecherosActivos: {
+          value: String(data.today?.activeCows || 0),
+          total: `vacas activas`
+        }
+      });
+
+      // Update top cows if available
+      if (data.topProducers && data.topProducers.length > 0) {
+        const formattedCows = data.topProducers.map(cow => ({
+          id: cow.id,
+          name: cow.name || cow.cow_id || 'Sin nombre',
+          breed: 'Holstein', // Default breed
+          production: `${cow.daily_production || 0}L`,
+          change: '+0%',
+          isPositive: true
+        }));
+        setTopCows(formattedCows);
+      }
+
+      // Update chart data with REAL weekly production data
+      if (data.thisWeek && data.thisWeek.dailyProduction) {
+        const dailyData = data.thisWeek.dailyProduction;
+
+        // Extract labels (day names) and values (total liters)
+        const labels = dailyData.map(day => day.dayName);
+        const values = dailyData.map(day => day.totalLiters);
+
+        // Ensure all values are at least 1 (to avoid chart rendering issues)
+        const safeChartValues = values.map(val => Math.max(val, 1));
+
+        console.log('Chart data (REAL):', {
+          labels,
+          values: safeChartValues,
+          rawData: dailyData
+        });
+
+        setChartData({
+          labels,
+          datasets: [
+            {
+              data: safeChartValues,
+              strokeWidth: 3,
+              color: (opacity = 1) => `rgba(96, 165, 250, ${opacity})`,
+            }
+          ]
+        });
+      } else {
+        // Fallback: use dummy data if dailyProduction is not available
+        console.warn('No dailyProduction data available, using fallback');
+        setChartData({
+          labels: ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'],
+          datasets: [
+            {
+              data: [1, 1, 1, 1, 1, 1, 1],
+              strokeWidth: 3,
+              color: (opacity = 1) => `rgba(96, 165, 250, ${opacity})`,
+            }
+          ]
+        });
+      }
+
+      setError(null);
+
+      // Load initial production data by period
+      loadProductionByPeriod(selectedPeriod);
+    } catch (err) {
+      console.error('Error loading dashboard data:', err);
+      setError(err.message);
+      // Keep default/previous values on error
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
     }
   };
 
-  // Datos para el gráfico
-  const chartData = {
+  // Load production data by period
+  const loadProductionByPeriod = async (period) => {
+    try {
+      console.log(`Loading production data for period: ${period}`);
+
+      // Show loading state for chart
+      setChartLoading(true);
+
+      // Map Spanish period names to English for API
+      const periodMap = {
+        'Día': 'day',
+        'Semana': 'week',
+        'Mes': 'month'
+      };
+
+      const apiPeriod = periodMap[period] || 'week';
+      const response = await dashboardService.getProductionByPeriod(apiPeriod);
+
+      console.log('Production data received:', response);
+
+      // Extract data from nested structure
+      const data = response.data || response;
+
+      console.log('Extracted data:', data);
+      console.log('Labels:', data.labels);
+      console.log('DataPoints:', data.dataPoints);
+
+      // Update chart title
+      const titleMap = {
+        'Día': 'Producción de Hoy',
+        'Semana': 'Producción Semanal',
+        'Mes': 'Producción Mensual'
+      };
+      setChartTitle(titleMap[period] || 'Producción');
+
+      // Update chart data
+      if (data.labels && data.dataPoints && Array.isArray(data.labels) && Array.isArray(data.dataPoints)) {
+        const values = data.dataPoints.map(d => Math.max(d.totalLiters || 0, 1)); // Ensure minimum 1 to avoid chart issues
+
+        console.log('Chart values:', values);
+        console.log('Chart labels:', data.labels);
+
+        // Create a completely new object to force React to re-render
+        const newChartData = {
+          labels: [...data.labels], // Create new array
+          datasets: [
+            {
+              data: [...values], // Create new array
+              strokeWidth: 3,
+              color: (opacity = 1) => `rgba(96, 165, 250, ${opacity})`,
+            }
+          ],
+          // Add a timestamp to ensure the object is different
+          _timestamp: Date.now()
+        };
+
+        console.log('New chart data:', newChartData);
+
+        // Small delay to ensure unmount/remount
+        setTimeout(() => {
+          setChartData(newChartData);
+          setChartLoading(false);
+          console.log('Chart data updated successfully');
+        }, 100);
+      } else {
+        console.warn('No labels or dataPoints found in response', {
+          hasLabels: !!data.labels,
+          hasDataPoints: !!data.dataPoints,
+          labelsIsArray: Array.isArray(data.labels),
+          dataPointsIsArray: Array.isArray(data.dataPoints)
+        });
+        setChartLoading(false);
+      }
+    } catch (err) {
+      console.error('Error loading production by period:', err);
+      setChartLoading(false);
+      // Don't show error alert for period changes, just log it
+    }
+  };
+
+  // Load data on component mount
+  useEffect(() => {
+    loadDashboardData();
+  }, []);
+
+  // Reload production data when period changes
+  useEffect(() => {
+    if (!loading) {
+      loadProductionByPeriod(selectedPeriod);
+    }
+  }, [selectedPeriod]);
+
+  // Reload data when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      loadDashboardData();
+    }, [])
+  );
+
+  // Handle pull to refresh
+  const onRefresh = () => {
+    setRefreshing(true);
+    loadDashboardData();
+  };
+
+  // Datos para el gráfico (solo con datos reales del backend)
+  const [chartData, setChartData] = useState({
     labels: ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'],
     datasets: [
       {
-        data: [2600, 2850, 2700, 2950, 2900, 3000, 2900],
+        data: [0, 0, 0, 0, 0, 0, 0],
         strokeWidth: 3,
         color: (opacity = 1) => `rgba(96, 165, 250, ${opacity})`,
       }
     ]
-  };
+  });
 
-  // Top 5 vacas productoras
-  const topCows = [
-    { id: 1, name: 'Vaca #247', breed: 'Holstein', production: '42L', change: '+5%', isPositive: true },
-    { id: 2, name: 'Vaca #156', breed: 'Jersey', production: '38L', change: '+2%', isPositive: true },
-    { id: 3, name: 'Vaca #089', breed: 'Holstein', production: '36L', change: '-1%', isPositive: false }
-  ];
+  // Top 5 vacas productoras (vacío por defecto, se llena con datos del backend)
+  const [topCows, setTopCows] = useState([]);
 
-  // Alertas críticas
-  const criticalAlerts = [
-    {
-      id: 1,
-      type: 'warning',
-      icon: AlertTriangle,
-      title: 'Inventario Bajo',
-      description: 'Alimento concentrado: 2 días restantes',
-      color: '#F59E0B'
-    },
-    {
-      id: 2,
-      type: 'clock',
-      icon: Clock,
-      title: 'Entrega Retrasada',
-      description: 'Lechero Juan Pérez - 2 horas de retraso',
-      color: '#EF4444'
-    },
-    {
-      id: 3,
-      type: 'temperature',
-      icon: Thermometer,
-      title: 'Temperatura Alta',
-      description: 'Tanque #2: 6°C (revisar refrigeración)',
-      color: '#F59E0B'
-    }
-  ];
+  // Alertas críticas (vacío por defecto, se llena con datos del backend)
+  const [criticalAlerts, setCriticalAlerts] = useState([]);
 
-  // Inventario de bodega
-  const inventory = [
-    { id: 1, name: 'Alimento Concentrado', amount: '150kg', icon: Droplet, color: '#60A5FA' },
-    { id: 2, name: 'Heno', amount: '1,200kg', icon: Droplet, color: '#60A5FA' },
-    { id: 3, name: 'Medicamentos', amount: '18 unid', icon: Droplet, color: '#60A5FA' }
-  ];
+  // Inventario de bodega (vacío por defecto, se llena con datos del backend)
+  const [inventory, setInventory] = useState([]);
 
   const MetricCard = ({ title, value, subtitle, icon: Icon, isPositive }) => (
     <View style={styles.metricCard}>
@@ -220,8 +398,34 @@ export default function CompanyDashboard() {
         </Svg>
       </View>
 
-      <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.scrollContainer}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
         <View style={styles.topSpacing} />
+
+        {/* Loading State */}
+        {loading && !refreshing ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#60A5FA" />
+            <Text style={styles.loadingText}>Cargando datos...</Text>
+          </View>
+        ) : null}
+
+        {/* Error State */}
+        {error && !loading ? (
+          <View style={styles.errorContainer}>
+            <AlertTriangle size={48} color="#EF4444" />
+            <Text style={styles.errorTitle}>Error al cargar datos</Text>
+            <Text style={styles.errorMessage}>{error}</Text>
+            <TouchableOpacity style={styles.retryButton} onPress={loadDashboardData}>
+              <Text style={styles.retryButtonText}>Reintentar</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
 
         {/* Métricas principales */}
         <View style={styles.metricsGrid}>
@@ -234,7 +438,7 @@ export default function CompanyDashboard() {
             isPositive={dashboardData.produccionHoy.isPositive}
           />
           <MetricCard
-            title="Calidad Promedio"
+            title="Promedio por Vaca"
             value={dashboardData.calidadPromedio.value}
             subtitle={dashboardData.calidadPromedio.label}
             icon={Star}
@@ -242,14 +446,14 @@ export default function CompanyDashboard() {
             isPositive={true}
           />
           <MetricCard
-            title="Entregas Hoy"
-            value={dashboardData.entregasHoy.value}
+            title="Producción Semanal"
+            value={`${dashboardData.entregasHoy.value}L`}
             subtitle={dashboardData.entregasHoy.pendientes}
             icon={Truck}
             color="#60A5FA"
           />
           <MetricCard
-            title="Lecheros Activos"
+            title="Vacas Activas"
             value={dashboardData.lecherosActivos.value}
             subtitle={dashboardData.lecherosActivos.total}
             icon={Users}
@@ -257,79 +461,97 @@ export default function CompanyDashboard() {
           />
         </View>
 
-        {/* Gráfico de Producción Semanal */}
-        <View style={styles.chartCard}>
-          <View style={styles.chartHeader}>
-            <Text style={styles.chartTitle}>Producción Semanal</Text>
-            <View style={styles.periodSelector}>
-              {['Día', 'Semana', 'Mes'].map((period) => (
-                <PeriodButton
-                  key={period}
-                  period={period}
-                  isSelected={selectedPeriod === period}
-                  onPress={() => setSelectedPeriod(period)}
-                />
+        {/* Gráfico de Producción */}
+        {!loading && chartData.datasets[0].data.length > 0 && (
+          <View style={styles.chartCard}>
+            <View style={styles.chartHeader}>
+              <Text style={styles.chartTitle}>{chartTitle}</Text>
+              <View style={styles.periodSelector}>
+                {['Día', 'Semana', 'Mes'].map((period) => (
+                  <PeriodButton
+                    key={period}
+                    period={period}
+                    isSelected={selectedPeriod === period}
+                    onPress={() => setSelectedPeriod(period)}
+                  />
+                ))}
+              </View>
+            </View>
+            {chartLoading ? (
+              <View style={styles.chartLoadingContainer}>
+                <ActivityIndicator size="small" color="#60A5FA" />
+                <Text style={styles.chartLoadingText}>Actualizando gráfico...</Text>
+              </View>
+            ) : (
+              <LineChart
+                key={`chart-${selectedPeriod}-${chartData._timestamp || Date.now()}`}
+                data={chartData}
+                width={screenWidth - 60}
+                height={200}
+                chartConfig={{
+                  backgroundColor: '#FFFFFF',
+                  backgroundGradientFrom: '#FFFFFF',
+                  backgroundGradientTo: '#FFFFFF',
+                  decimalPlaces: 0,
+                  color: (opacity = 1) => `rgba(96, 165, 250, ${opacity})`,
+                  labelColor: (opacity = 1) => `rgba(107, 114, 128, ${opacity})`,
+                  style: {
+                    borderRadius: 16,
+                  },
+                  propsForDots: {
+                    r: '4',
+                    strokeWidth: '2',
+                    stroke: '#60A5FA'
+                  }
+                }}
+                bezier
+                style={styles.chart}
+                withInnerLines={false}
+                withOuterLines={false}
+                withHorizontalLines={true}
+                withVerticalLines={false}
+                withShadow={false}
+                onDataPointClick={() => {}} // Disable double-click events
+              />
+            )}
+          </View>
+        )}
+
+        {/* Top 5 Vacas Productoras */}
+        {topCows.length > 0 && (
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Top 5 Vacas Productoras</Text>
+            <View style={styles.cowsList}>
+              {topCows.map((cow, index) => (
+                <CowRankingItem key={cow.id} cow={cow} index={index} />
               ))}
             </View>
           </View>
-          <LineChart
-            data={chartData}
-            width={screenWidth - 60}
-            height={200}
-            chartConfig={{
-              backgroundColor: '#FFFFFF',
-              backgroundGradientFrom: '#FFFFFF',
-              backgroundGradientTo: '#FFFFFF',
-              decimalPlaces: 0,
-              color: (opacity = 1) => `rgba(96, 165, 250, ${opacity})`,
-              labelColor: (opacity = 1) => `rgba(107, 114, 128, ${opacity})`,
-              style: {
-                borderRadius: 16,
-              },
-              propsForDots: {
-                r: '4',
-                strokeWidth: '2',
-                stroke: '#60A5FA'
-              }
-            }}
-            bezier
-            style={styles.chart}
-            withInnerLines={false}
-            withOuterLines={false}
-            withHorizontalLines={true}
-            withVerticalLines={false}
-          />
-        </View>
-
-        {/* Top 5 Vacas Productoras */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Top 5 Vacas Productoras</Text>
-          <View style={styles.cowsList}>
-            {topCows.map((cow, index) => (
-              <CowRankingItem key={cow.id} cow={cow} index={index} />
-            ))}
-          </View>
-        </View>
+        )}
 
         {/* Alertas Críticas */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Alertas Críticas</Text>
-          <View style={styles.alertsList}>
-            {criticalAlerts.map((alert) => (
-              <AlertItem key={alert.id} alert={alert} />
-            ))}
+        {criticalAlerts.length > 0 && (
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Alertas Críticas</Text>
+            <View style={styles.alertsList}>
+              {criticalAlerts.map((alert) => (
+                <AlertItem key={alert.id} alert={alert} />
+              ))}
+            </View>
           </View>
-        </View>
+        )}
 
         {/* Inventario Bodega */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Inventario Bodega</Text>
-          <View style={styles.inventoryList}>
-            {inventory.map((item) => (
-              <InventoryItem key={item.id} item={item} />
-            ))}
+        {inventory.length > 0 && (
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Inventario Bodega</Text>
+            <View style={styles.inventoryList}>
+              {inventory.map((item) => (
+                <InventoryItem key={item.id} item={item} />
+              ))}
+            </View>
           </View>
-        </View>
+        )}
 
         <View style={styles.bottomSpacing} />
       </ScrollView>
@@ -465,6 +687,17 @@ const styles = StyleSheet.create({
   chart: {
     marginVertical: 8,
     borderRadius: 12,
+  },
+  chartLoadingContainer: {
+    height: 200,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginVertical: 8,
+  },
+  chartLoadingText: {
+    marginTop: 8,
+    fontSize: 12,
+    color: '#6B7280',
   },
   card: {
     backgroundColor: '#FFFFFF',
@@ -622,5 +855,47 @@ const styles = StyleSheet.create({
   },
   topSpacing: {
     height: 20,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: '#6B7280',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+    paddingHorizontal: 24,
+  },
+  errorTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#111827',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  errorMessage: {
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  retryButton: {
+    backgroundColor: '#60A5FA',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
