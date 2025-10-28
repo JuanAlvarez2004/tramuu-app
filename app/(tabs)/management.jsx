@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Dimensions,
   ScrollView,
@@ -6,57 +6,131 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
+  ActivityIndicator,
+  RefreshControl
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter, useFocusEffect } from 'expo-router';
 import CowCard from '@/components/management/CowCard';
-import { Funnel, Plus, Search } from 'lucide-react-native';
+import { Funnel, Plus, Search, AlertCircle } from 'lucide-react-native';
 import Svg, { Path } from 'react-native-svg';
+import { cowsService } from '@/services';
 
+// Constants
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 
+const STATUS_COLORS = {
+  'Preñada': '#10B981',
+  'Lactante': '#3B82F6',
+  'Seca': '#F59E0B',
+};
+
+const LOW_PRODUCTION_THRESHOLD = 5; // Liters per day
+const MILLISECONDS_PER_YEAR = 365.25 * 24 * 60 * 60 * 1000;
+
+/**
+ * Calculate age from date of birth
+ * @param {string} dateOfBirth - Date in ISO format
+ * @returns {string} Age text (e.g., "2 años" or "N/A")
+ */
+const calculateAge = (dateOfBirth) => {
+  if (!dateOfBirth) return 'N/A';
+
+  const birthDate = new Date(dateOfBirth);
+  const today = new Date();
+  const ageInYears = Math.floor((today - birthDate) / MILLISECONDS_PER_YEAR);
+
+  return `${ageInYears} año${ageInYears !== 1 ? 's' : ''}`;
+};
+
+/**
+ * Map backend cow data to frontend format
+ * @param {Object} cow - Raw cow data from backend
+ * @returns {Object} Formatted cow data for display
+ */
+const mapCowData = (cow) => {
+  const dailyProduction = cow.daily_production || 0;
+  const status = cow.status || 'Activa';
+
+  return {
+    id: cow.id,
+    cowId: cow.cow_id,
+    name: cow.name,
+    displayName: cow.name || cow.cow_id,
+    image: 'https://images.unsplash.com/photo-1516467508483-a7212febe31a?w=150&h=150&fit=crop',
+    status,
+    breed: cow.breed || 'Holstein',
+    production: `${dailyProduction}L`,
+    age: calculateAge(cow.date_of_birth),
+    alert: dailyProduction > 0 && dailyProduction < LOW_PRODUCTION_THRESHOLD,
+    statusColor: STATUS_COLORS[status] || '#F59E0B',
+    breedColor: '#E5E7EB'
+  };
+};
+
 export default function Management() {
+  const router = useRouter();
   const [searchText, setSearchText] = useState('');
   const [selectedBreed, setSelectedBreed] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState(null);
+  const [cowsData, setCowsData] = useState([]);
 
-  // Datos de ejemplo para las vacas
-  const cowsData = [
-    {
-      id: '#H-001',
-      image: 'https://images.unsplash.com/photo-1516467508483-a7212febe31a?w=150&h=150&fit=crop',
-      status: 'Preñada',
-      breed: 'Holstein',
-      production: '28.5L',
-      age: '3 años',
-      alert: true,
-      statusColor: '#10B981',
-      breedColor: '#E5E7EB'
-    },
-    {
-      id: '#J-045',
-      image: 'https://images.unsplash.com/photo-1560114928-40f1f1eb26a0?w=150&h=150&fit=crop',
-      status: 'Pseudo',
-      breed: 'Jersey',
-      production: '22.1L',
-      age: '5 años',
-      alert: false,
-      statusColor: '#F59E0B',
-      breedColor: '#E5E7EB'
-    },
-    {
-      id: '#B-023',
-      image: 'https://images.unsplash.com/photo-1572449043416-55f4685c9bb7?w=150&h=150&fit=crop',
-      status: 'Preñada',
-      breed: 'Brown Swiss',
-      production: '25.8L',
-      age: '4 años',
-      alert: false,
-      statusColor: '#10B981',
-      breedColor: '#E5E7EB'
+  /**
+   * Load cows from backend with current filters
+   */
+  const loadCows = async () => {
+    try {
+      const data = await cowsService.getCows({
+        search: searchText || undefined,
+        breed: selectedBreed || undefined,
+        status: selectedStatus || undefined,
+      });
+
+      // Map backend data to frontend format
+      const cowsArray = data.cows || data || [];
+      const mappedCows = cowsArray.map(mapCowData);
+
+      setCowsData(mappedCows);
+      setError(null);
+    } catch (err) {
+      console.error('Error loading cows:', err);
+      setError(err.message);
+      // Keep previous data on error to avoid empty screen
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
     }
-  ]
+  };
 
+  // Load cows on mount and when search or filters change
+  useEffect(() => {
+    loadCows();
+  }, [searchText, selectedBreed, selectedStatus]);
+
+  /**
+   * Reload cows when screen gains focus (e.g., after adding a new cow)
+   */
+  useFocusEffect(
+    useCallback(() => {
+      loadCows();
+    }, [])
+  );
+
+  /**
+   * Handle pull-to-refresh action
+   */
+  const onRefresh = () => {
+    setRefreshing(true);
+    loadCows();
+  };
+
+  /**
+   * Filter button component for breed and status filters
+   */
   const FilterButton = ({ title, isSelected, onPress, color }) => (
     <TouchableOpacity
       style={[
@@ -144,14 +218,42 @@ export default function Management() {
       </View>
 
       {/* Cows List */}
-      <ScrollView style={styles.cowsList} showsVerticalScrollIndicator={false}>
-        {cowsData.map((cow) => (
-          <CowCard key={cow.id} cow={cow} />
-        ))}
+      <ScrollView
+        style={styles.cowsList}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
+        {loading && !refreshing ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#60A5FA" />
+            <Text style={styles.loadingText}>Cargando vacas...</Text>
+          </View>
+        ) : error && !loading ? (
+          <View style={styles.errorContainer}>
+            <AlertCircle size={48} color="#EF4444" />
+            <Text style={styles.errorText}>Error al cargar las vacas</Text>
+            <TouchableOpacity style={styles.retryButton} onPress={loadCows}>
+              <Text style={styles.retryButtonText}>Reintentar</Text>
+            </TouchableOpacity>
+          </View>
+        ) : cowsData.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>No hay vacas registradas</Text>
+          </View>
+        ) : (
+          cowsData.map((cow) => (
+            <CowCard key={cow.id} cow={cow} />
+          ))
+        )}
       </ScrollView>
 
       {/* Add Button */}
-      <TouchableOpacity style={styles.addButton}>
+      <TouchableOpacity
+        style={styles.addButton}
+        onPress={() => router.push('/cowForm')}
+      >
         <Plus color="#FFFFFF" />
       </TouchableOpacity>
     </SafeAreaView>
@@ -262,5 +364,52 @@ const styles = StyleSheet.create({
     left: -100,
     bottom: -150,
     transform: [{ rotate: "90deg" }, { scaleX: 1.3 }, { scaleY: 1.3 }],
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: '#6B7280',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+    paddingHorizontal: 24,
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#EF4444',
+    marginTop: 12,
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  retryButton: {
+    backgroundColor: '#60A5FA',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+  emptyText: {
+    fontSize: 16,
+    color: '#6B7280',
+    textAlign: 'center',
   },
 });

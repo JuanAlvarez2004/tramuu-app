@@ -6,9 +6,11 @@ import {
   MoreHorizontal,
   Plus,
   Truck,
-  Users
+  Users,
+  RefreshCw,
+  AlertCircle
 } from 'lucide-react-native';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Alert,
   Dimensions,
@@ -18,52 +20,156 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
+  ActivityIndicator,
+  RefreshControl
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 import KeyboardAwareWrapper from '@/components/KeyboardAwareWrapper';
+import { deliveriesService, employeesService } from '@/services';
 
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 
 export default function Deliveries() {
   const [activeTab, setActiveTab] = useState('programar'); // programar, entregar, clientes
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
+
+  // Form states
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [selectedClient, setSelectedClient] = useState('');
-  const [cantidad, setCantidad] = useState('0');
+  const [cantidad, setCantidad] = useState('');
   const [unidad, setUnidad] = useState('Litros');
   const [hora, setHora] = useState('');
   const [selectedTime, setSelectedTime] = useState(new Date());
   const [direccion, setDireccion] = useState('');
-  const [lecheroAsignado, setLecheroAsignado] = useState('Juan Pérez');
+  const [lecheroAsignado, setLecheroAsignado] = useState('');
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
   const [notas, setNotas] = useState('');
-  
+
   // Estados para controlar la visibilidad de los pickers
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
 
-  // Datos de ejemplo
-  const deliveriesData = [
-    {
-      id: 1,
-      cliente: 'María González',
-      cantidad: '5 litros',
-      hora: '08:30 AM',
-      direccion: 'Calle Principal 123',
-      estado: 'Pendiente',
-      estadoColor: '#F59E0B'
-    },
-    {
-      id: 2,
-      cliente: 'Carlos Ruiz',
-      cantidad: '3 litros',
-      hora: '10:00 AM',
-      direccion: 'Av. Central 456',
-      estado: 'Completado',
-      estadoColor: '#10B981'
+  // Data states
+  const [deliveries, setDeliveries] = useState([]);
+  const [employees, setEmployees] = useState([]);
+  const [statistics, setStatistics] = useState(null);
+
+  // Load data on mount and when tab changes
+  useEffect(() => {
+    loadData();
+  }, [activeTab, selectedDate]);
+
+  useEffect(() => {
+    loadEmployees();
+  }, []);
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      if (activeTab === 'programar') {
+        await loadDeliveries({ date: selectedDate.toISOString().split('T')[0] });
+      } else if (activeTab === 'entregar') {
+        await loadDeliveries({ status: 'IN_PROGRESS' });
+      }
+    } catch (err) {
+      console.error('Error loading deliveries:', err);
+      setError(err.message || 'Error al cargar las entregas');
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
+
+  const loadDeliveries = async (params = {}) => {
+    try {
+      const data = await deliveriesService.getDeliveries(params);
+      setDeliveries(data || []);
+    } catch (error) {
+      throw error;
+    }
+  };
+
+  const loadEmployees = async () => {
+    try {
+      const data = await employeesService.getEmployees();
+      setEmployees(data || []);
+      // Auto-select first employee if available
+      if (data && data.length > 0 && !selectedEmployeeId) {
+        setSelectedEmployeeId(data[0].id);
+        setLecheroAsignado(`${data[0].firstName} ${data[0].lastName}`);
+      }
+    } catch (error) {
+      console.error('Error loading employees:', error);
+    }
+  };
+
+  const loadStatistics = async () => {
+    try {
+      const data = await deliveriesService.getStatistics();
+      setStatistics(data || null);
+    } catch (error) {
+      throw error;
+    }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadData();
+    setRefreshing(false);
+  };
+
+  const resetForm = () => {
+    setSelectedClient('');
+    setCantidad('');
+    setDireccion('');
+    setNotas('');
+    setHora('');
+  };
+
+  // Helper functions
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'PENDING':
+        return '#F59E0B';
+      case 'IN_PROGRESS':
+        return '#3B82F6';
+      case 'COMPLETED':
+        return '#10B981';
+      case 'CANCELLED':
+        return '#EF4444';
+      default:
+        return '#6B7280';
+    }
+  };
+
+  const getStatusLabel = (status) => {
+    switch (status) {
+      case 'PENDING':
+        return 'Pendiente';
+      case 'IN_PROGRESS':
+        return 'En Camino';
+      case 'COMPLETED':
+        return 'Completado';
+      case 'CANCELLED':
+        return 'Cancelado';
+      default:
+        return status;
+    }
+  };
+
+  const formatTime = (dateString) => {
+    const date = new Date(dateString);
+    const hours = date.getHours().toString().padStart(2, '0');
+    const minutes = date.getMinutes().toString().padStart(2, '0');
+    return `${hours}:${minutes}`;
+  };
 
   const Tab = ({ id, title, icon: Icon, isSelected, onPress }) => (
     <TouchableOpacity
@@ -113,13 +219,15 @@ export default function Deliveries() {
     <View style={styles.deliveryCard}>
       <View style={styles.deliveryHeader}>
         <View style={styles.deliveryInfo}>
-          <Text style={styles.deliveryClient}>{delivery.cliente}</Text>
-          <Text style={styles.deliveryDetails}>{delivery.cantidad} • {delivery.hora}</Text>
-          <Text style={styles.deliveryAddress}>{delivery.direccion}</Text>
+          <Text style={styles.deliveryClient}>{delivery.clientName}</Text>
+          <Text style={styles.deliveryDetails}>
+            {delivery.quantity.toLocaleString()} L • {formatTime(delivery.scheduledDate)}
+          </Text>
+          <Text style={styles.deliveryAddress}>{delivery.deliveryAddress}</Text>
         </View>
         <View style={styles.deliveryActions}>
-          <View style={[styles.statusBadge, { backgroundColor: delivery.estadoColor }]}>
-            <Text style={styles.statusText}>{delivery.estado}</Text>
+          <View style={[styles.statusBadge, { backgroundColor: getStatusColor(delivery.status) }]}>
+            <Text style={styles.statusText}>{getStatusLabel(delivery.status)}</Text>
           </View>
           <TouchableOpacity style={styles.moreButton}>
             <MoreHorizontal size={16} color="#6B7280" />
@@ -179,12 +287,74 @@ export default function Deliveries() {
     Alert.alert("Seleccionar Lechero", "Funcionalidad de selección de lechero en desarrollo");
   };
 
-  const handleProgramarEntrega = () => {
-    Alert.alert("Entrega Programada", "La entrega ha sido programada exitosamente");
+  const handleProgramarEntrega = async () => {
+    try {
+      // Validations
+      if (!selectedClient || selectedClient.trim() === '') {
+        Alert.alert('Error', 'Por favor ingresa el nombre del cliente');
+        return;
+      }
+
+      if (!cantidad || parseFloat(cantidad) <= 0) {
+        Alert.alert('Error', 'Por favor ingresa una cantidad válida');
+        return;
+      }
+
+      if (!direccion || direccion.trim() === '') {
+        Alert.alert('Error', 'Por favor ingresa la dirección de entrega');
+        return;
+      }
+
+      if (!selectedEmployeeId) {
+        Alert.alert('Error', 'Por favor selecciona un lechero');
+        return;
+      }
+
+      setSaving(true);
+
+      // Create scheduled datetime
+      const scheduledDateTime = new Date(selectedDate);
+      if (hora) {
+        const [hours, minutes] = hora.split(':');
+        scheduledDateTime.setHours(parseInt(hours), parseInt(minutes));
+      }
+
+      const deliveryData = {
+        clientName: selectedClient.trim(),
+        deliveryAddress: direccion.trim(),
+        quantity: parseFloat(cantidad),
+        scheduledDate: scheduledDateTime.toISOString(),
+        assignedEmployeeId: selectedEmployeeId,
+        notes: notas.trim() || undefined
+      };
+
+      await deliveriesService.createDelivery(deliveryData);
+
+      Alert.alert(
+        'Éxito',
+        'La entrega ha sido programada exitosamente',
+        [{ text: 'OK', onPress: () => {
+          resetForm();
+          loadData();
+        }}]
+      );
+    } catch (error) {
+      console.error('Error creating delivery:', error);
+      const message = error.response?.data?.message || error.message || 'Error al programar la entrega';
+      Alert.alert('Error', message);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const renderProgramar = () => (
-    <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
+    <ScrollView
+      style={styles.scrollContainer}
+      showsVerticalScrollIndicator={false}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#3B82F6']} />
+      }
+    >
       {/* Date Selection Section */}
       <View style={styles.calendarSection}>
         <View style={styles.calendarHeader}>
@@ -211,11 +381,15 @@ export default function Deliveries() {
 
         <View style={styles.inputContainer}>
           <Text style={styles.inputLabel}>Cliente</Text>
-          <Dropdown
-            value={selectedClient}
-            placeholder="Seleccionar cliente"
-            onPress={handleClientSelect}
-          />
+          <View style={styles.inputWrapper}>
+            <TextInput
+              style={styles.textInput}
+              value={selectedClient}
+              onChangeText={setSelectedClient}
+              placeholder="Nombre del cliente"
+              placeholderTextColor="#9CA3AF"
+            />
+          </View>
         </View>
 
         <View style={styles.quantityRow}>
@@ -281,8 +455,16 @@ export default function Deliveries() {
           </View>
         </View>
 
-        <TouchableOpacity style={styles.programButton} onPress={handleProgramarEntrega}>
-          <Text style={styles.programButtonText}>Programar Entrega</Text>
+        <TouchableOpacity
+          style={[styles.programButton, saving && styles.programButtonDisabled]}
+          onPress={handleProgramarEntrega}
+          disabled={saving}
+        >
+          {saving ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <Text style={styles.programButtonText}>Programar Entrega</Text>
+          )}
         </TouchableOpacity>
       </View>
 
@@ -291,24 +473,88 @@ export default function Deliveries() {
         <Text style={styles.cardTitle}>
           Entregas del {selectedDate.toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })}
         </Text>
-        <View style={styles.deliveriesContainer}>
-          {deliveriesData.map((delivery) => (
-            <DeliveryCard key={delivery.id} delivery={delivery} />
-          ))}
-        </View>
+        {loading && !refreshing ? (
+          <View style={styles.loadingSmall}>
+            <ActivityIndicator color="#3B82F6" />
+          </View>
+        ) : deliveries.length === 0 ? (
+          <View style={styles.emptyDeliveries}>
+            <Truck size={32} color="#9CA3AF" />
+            <Text style={styles.emptyDeliveriesText}>No hay entregas programadas para este día</Text>
+          </View>
+        ) : (
+          <View style={styles.deliveriesContainer}>
+            {deliveries.map((delivery) => (
+              <DeliveryCard key={delivery.id} delivery={delivery} />
+            ))}
+          </View>
+        )}
       </View>
 
       <View style={styles.bottomSpacing} />
     </ScrollView>
   );
 
-  const renderEntregar = () => (
-    <View style={styles.emptyState}>
-      <Truck size={48} color="#9CA3AF" />
-      <Text style={styles.emptyTitle}>Entregas Activas</Text>
-      <Text style={styles.emptyText}>Las entregas en curso aparecerán aquí</Text>
-    </View>
-  );
+  const renderEntregar = () => {
+    if (loading && !refreshing) {
+      return (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#3B82F6" />
+          <Text style={styles.loadingText}>Cargando entregas...</Text>
+        </View>
+      );
+    }
+
+    if (error) {
+      return (
+        <View style={styles.errorContainer}>
+          <AlertCircle size={48} color="#EF4444" />
+          <Text style={styles.errorTitle}>Error al cargar entregas</Text>
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={loadData}>
+            <RefreshCw size={20} color="#3B82F6" />
+            <Text style={styles.retryText}>Reintentar</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    if (!deliveries || deliveries.length === 0) {
+      return (
+        <ScrollView
+          style={styles.scrollContainer}
+          contentContainerStyle={styles.emptyStateContainer}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#3B82F6']} />
+          }
+        >
+          <Truck size={48} color="#9CA3AF" />
+          <Text style={styles.emptyTitle}>No hay entregas activas</Text>
+          <Text style={styles.emptyText}>Las entregas en curso aparecerán aquí</Text>
+        </ScrollView>
+      );
+    }
+
+    return (
+      <ScrollView
+        style={styles.scrollContainer}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#3B82F6']} />
+        }
+      >
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Entregas en Progreso</Text>
+          <View style={styles.deliveriesContainer}>
+            {deliveries.map((delivery) => (
+              <DeliveryCard key={delivery.id} delivery={delivery} />
+            ))}
+          </View>
+        </View>
+        <View style={styles.bottomSpacing} />
+      </ScrollView>
+    );
+  };
 
   const renderClientes = () => (
     <View style={styles.emptyState}>
@@ -709,5 +955,77 @@ const styles = StyleSheet.create({
   },
   bottomSpacing: {
     height: 40,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 40,
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#6B7280',
+  },
+  loadingSmall: {
+    paddingVertical: 20,
+    alignItems: 'center',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 40,
+  },
+  errorTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#111827',
+    marginTop: 16,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  errorText: {
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 16,
+  },
+  retryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    gap: 8,
+  },
+  retryText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#3B82F6',
+  },
+  emptyStateContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 40,
+  },
+  emptyDeliveries: {
+    paddingVertical: 40,
+    alignItems: 'center',
+    gap: 8,
+  },
+  emptyDeliveriesText: {
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
+    marginTop: 8,
+  },
+  programButtonDisabled: {
+    opacity: 0.6,
   },
 });

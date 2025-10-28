@@ -1,67 +1,204 @@
 import {
   Calendar,
   ChevronDown,
-  Clock, 
+  Clock,
   Package,
   Thermometer,
-  TrendingUp
+  TrendingUp,
+  RefreshCw,
+  AlertCircle
 } from 'lucide-react-native';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Dimensions,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
+  View,
+  ActivityIndicator,
+  RefreshControl
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
+import { inventoryService } from '@/services';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 
 export default function Inventory() {
   const [activeTab, setActiveTab] = useState('estado'); // estado, movimientos, vencimientos
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState(null);
+  const [items, setItems] = useState([]);
+  const [statistics, setStatistics] = useState(null);
+  const [movements, setMovements] = useState([]);
 
-  // Datos de ejemplo para el inventario
-  const capacityData = {
-    total: 24000,
-    frios: 15240,
-    calientes: 8760
+  // Load data on mount and when tab changes
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        if (activeTab === 'estado') {
+          // Load items and statistics in parallel
+          const [itemsData, statsData] = await Promise.all([
+            inventoryService.getItems(),
+            inventoryService.getStatistics()
+          ]);
+          
+          setItems(Array.isArray(itemsData) ? itemsData : []);
+          setStatistics(statsData || null);
+        } else if (activeTab === 'movimientos') {
+          // First ensure we have items loaded
+          let currentItems = items;
+          if (!items || items.length === 0) {
+            const itemsData = await inventoryService.getItems();
+            currentItems = Array.isArray(itemsData) ? itemsData : [];
+            setItems(currentItems);
+          }
+          
+          // Get movements for all items
+          const allMovements = [];
+          if (Array.isArray(currentItems) && currentItems.length > 0) {
+            for (const item of currentItems) {
+              const itemMovements = await inventoryService.getMovements(item.id);
+              allMovements.push(...(itemMovements || []));
+            }
+          }
+          setMovements(allMovements);
+        }
+      } catch (err) {
+        console.error('Error loading inventory data:', err);
+        setError(err.message || 'Error al cargar el inventario');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      setError(null);
+      
+      if (activeTab === 'estado') {
+        // Load items and statistics in parallel
+        const [itemsData, statsData] = await Promise.all([
+          inventoryService.getItems(),
+          inventoryService.getStatistics()
+        ]);
+        
+        setItems(Array.isArray(itemsData) ? itemsData : []);
+        setStatistics(statsData || null);
+      } else if (activeTab === 'movimientos') {
+        // Get fresh items first
+        const itemsData = await inventoryService.getItems();
+        const currentItems = Array.isArray(itemsData) ? itemsData : [];
+        setItems(currentItems);
+        
+        // Get movements for all items
+        const allMovements = [];
+        if (currentItems.length > 0) {
+          for (const item of currentItems) {
+            const itemMovements = await inventoryService.getMovements(item.id);
+            allMovements.push(...(itemMovements || []));
+          }
+        }
+        setMovements(allMovements);
+      }
+    } catch (err) {
+      console.error('Error loading inventory data:', err);
+      setError(err.message || 'Error al cargar el inventario');
+    } finally {
+      setRefreshing(false);
+    }
   };
 
-  const lotesActivos = [
-    {
-      id: '#LT-2024-001',
-      cantidad: '2,500 L',
-      ingreso: '15/01/2024',
-      diasAtras: 3,
-      estado: 'Frío',
-      estadoColor: '#10B981'
-    },
-    {
-      id: '#LT-2024-002',
-      cantidad: '1,800 L',
-      ingreso: '14/01/2024',
-      diasAtras: 4,
-      estado: 'Proceso',
-      estadoColor: '#F59E0B'
-    },
-    {
-      id: '#LT-2024-003',
-      cantidad: '3,200 L',
-      ingreso: '12/01/2024',
-      diasAtras: 6,
-      estado: 'Frío',
-      estadoColor: '#10B981'
+  // Helper functions
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'COLD':
+        return '#10B981';
+      case 'HOT':
+        return '#EF4444';
+      case 'PROCESS':
+        return '#F59E0B';
+      default:
+        return '#6B7280';
     }
-  ];
+  };
 
-  const categoriesData = [
-    { name: 'Leche Fresca', cantidad: '15,240 L', percentage: 63.5, color: '#3B82F6' },
-    { name: 'En Proceso', cantidad: '5,680 L', percentage: 23.7, color: '#F59E0B' },
-    { name: 'Almacenada', cantidad: '3,080 L', percentage: 12.8, color: '#10B981' }
-  ];
+  const getStatusLabel = (status) => {
+    switch (status) {
+      case 'COLD':
+        return 'Frío';
+      case 'HOT':
+        return 'Caliente';
+      case 'PROCESS':
+        return 'Proceso';
+      default:
+        return status;
+    }
+  };
+
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  };
+
+  const getDaysAgo = (dateString) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diff = Math.floor((now - date) / (1000 * 60 * 60 * 24));
+    return diff;
+  };
+
+  // Calculate capacity data from statistics
+  const capacityData = statistics ? {
+    total: statistics.totalQuantity || 0,
+    frios: statistics.coldQuantity || 0,
+    calientes: statistics.hotQuantity || 0
+  } : { total: 0, frios: 0, calientes: 0 };
+
+  // Calculate categories data from statistics
+  const categoriesData = statistics ? [
+    {
+      name: 'Leche Fresca',
+      cantidad: `${(statistics.freshMilk || 0).toLocaleString()} L`,
+      percentage: statistics.totalQuantity > 0 ? ((statistics.freshMilk || 0) / statistics.totalQuantity * 100).toFixed(1) : 0,
+      color: '#3B82F6'
+    },
+    {
+      name: 'En Proceso',
+      cantidad: `${(statistics.processing || 0).toLocaleString()} L`,
+      percentage: statistics.totalQuantity > 0 ? ((statistics.processing || 0) / statistics.totalQuantity * 100).toFixed(1) : 0,
+      color: '#F59E0B'
+    },
+    {
+      name: 'Almacenada',
+      cantidad: `${(statistics.stored || 0).toLocaleString()} L`,
+      percentage: statistics.totalQuantity > 0 ? ((statistics.stored || 0) / statistics.totalQuantity * 100).toFixed(1) : 0,
+      color: '#10B981'
+    }
+  ] : [];
+
+  // Transform items to lotes format
+  const lotesActivos = Array.isArray(items) 
+    ? items.slice(0, 3).map(item => ({
+        id: item.batchId,
+        cantidad: `${item.quantity.toLocaleString()} L`,
+        ingreso: formatDate(item.createdAt),
+        diasAtras: getDaysAgo(item.createdAt),
+        estado: getStatusLabel(item.status),
+        estadoColor: getStatusColor(item.status),
+        location: item.location
+      }))
+    : [];
 
   const Tab = ({ id, title, icon: Icon, isSelected, onPress }) => (
     <TouchableOpacity
@@ -138,10 +275,56 @@ export default function Inventory() {
     </View>
   );
 
-  const renderEstadoBodega = () => (
-    <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
-      {/* Capacity Stats */}
-      <View style={styles.capacitySection}>
+  const renderEstadoBodega = () => {
+    if (loading && !refreshing) {
+      return (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#3B82F6" />
+          <Text style={styles.loadingText}>Cargando inventario...</Text>
+        </View>
+      );
+    }
+
+    if (error) {
+      return (
+        <View style={styles.errorContainer}>
+          <AlertCircle size={48} color="#EF4444" />
+          <Text style={styles.errorTitle}>Error al cargar inventario</Text>
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={onRefresh}>
+            <RefreshCw size={20} color="#3B82F6" />
+            <Text style={styles.retryText}>Reintentar</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    if (!items || items.length === 0 || !Array.isArray(items)) {
+      return (
+        <ScrollView
+          style={styles.scrollContainer}
+          contentContainerStyle={styles.emptyStateContainer}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#3B82F6']} />
+          }
+        >
+          <Package size={48} color="#9CA3AF" />
+          <Text style={styles.emptyTitle}>No hay items en inventario</Text>
+          <Text style={styles.emptyText}>Los lotes de leche aparecerán aquí cuando los agregues</Text>
+        </ScrollView>
+      );
+    }
+
+    return (
+      <ScrollView
+        style={styles.scrollContainer}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#3B82F6']} />
+        }
+      >
+        {/* Capacity Stats */}
+        <View style={styles.capacitySection}>
         <Text style={styles.sectionTitle}>Capacidad Total</Text>
         <View style={styles.statsContainer}>
           <StatCard
@@ -192,15 +375,87 @@ export default function Inventory() {
 
       <View style={styles.bottomSpacing} />
     </ScrollView>
-  );
+    );
+  };
 
-  const renderMovimientos = () => (
-    <View style={styles.emptyState}>
-      <TrendingUp size={48} color="#9CA3AF" />
-      <Text style={styles.emptyTitle}>Movimientos de Inventario</Text>
-      <Text style={styles.emptyText}>Los movimientos de entrada y salida aparecerán aquí</Text>
-    </View>
-  );
+  const renderMovimientos = () => {
+    if (loading && !refreshing) {
+      return (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#3B82F6" />
+          <Text style={styles.loadingText}>Cargando movimientos...</Text>
+        </View>
+      );
+    }
+
+    if (error) {
+      return (
+        <View style={styles.errorContainer}>
+          <AlertCircle size={48} color="#EF4444" />
+          <Text style={styles.errorTitle}>Error al cargar movimientos</Text>
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={onRefresh}>
+            <RefreshCw size={20} color="#3B82F6" />
+            <Text style={styles.retryText}>Reintentar</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    if (!movements || movements.length === 0) {
+      return (
+        <ScrollView
+          style={styles.scrollContainer}
+          contentContainerStyle={styles.emptyStateContainer}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#3B82F6']} />
+          }
+        >
+          <TrendingUp size={48} color="#9CA3AF" />
+          <Text style={styles.emptyTitle}>No hay movimientos</Text>
+          <Text style={styles.emptyText}>Los movimientos de entrada y salida aparecerán aquí</Text>
+        </ScrollView>
+      );
+    }
+
+    return (
+      <ScrollView
+        style={styles.scrollContainer}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#3B82F6']} />
+        }
+      >
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Historial de Movimientos</Text>
+          <View style={styles.movementsContainer}>
+            {movements.map((movement, index) => (
+              <View key={index} style={styles.movementCard}>
+                <View style={styles.movementHeader}>
+                  <View style={[
+                    styles.movementTypeBadge,
+                    { backgroundColor: movement.type === 'IN' ? '#10B981' : movement.type === 'OUT' ? '#EF4444' : '#F59E0B' }
+                  ]}>
+                    <Text style={styles.movementTypeText}>
+                      {movement.type === 'IN' ? 'Entrada' : movement.type === 'OUT' ? 'Salida' : 'Ajuste'}
+                    </Text>
+                  </View>
+                  <Text style={styles.movementQuantity}>{movement.quantity.toLocaleString()} L</Text>
+                </View>
+                {movement.reason && (
+                  <Text style={styles.movementReason}>{movement.reason}</Text>
+                )}
+                <Text style={styles.movementDate}>
+                  {formatDate(movement.createdAt)}
+                </Text>
+              </View>
+            ))}
+          </View>
+        </View>
+        <View style={styles.bottomSpacing} />
+      </ScrollView>
+    );
+  };
 
   const renderVencimientos = () => (
     <View style={styles.emptyState}>
@@ -569,5 +824,99 @@ const styles = StyleSheet.create({
   },
   bottomSpacing: {
     height: 40,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 40,
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#6B7280',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 40,
+  },
+  errorTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#111827',
+    marginTop: 16,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  errorText: {
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 16,
+  },
+  retryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    gap: 8,
+  },
+  retryText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#3B82F6',
+  },
+  emptyStateContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 40,
+  },
+  movementsContainer: {
+    gap: 12,
+  },
+  movementCard: {
+    backgroundColor: '#F9FAFB',
+    borderRadius: 8,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  movementHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  movementTypeBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  movementTypeText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#FFFFFF',
+  },
+  movementQuantity: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#111827',
+  },
+  movementReason: {
+    fontSize: 14,
+    color: '#374151',
+    marginBottom: 4,
+  },
+  movementDate: {
+    fontSize: 12,
+    color: '#6B7280',
   },
 });
