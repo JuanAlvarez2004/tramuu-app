@@ -1,7 +1,8 @@
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import {
   Bell,
   Lock,
+  LogOut,
   Mail,
   MapPin,
   MoreHorizontal,
@@ -11,9 +12,10 @@ import {
   Shield,
   Trash2,
   User,
-  Users
+  Users,
+  Copy
 } from 'lucide-react-native';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Alert,
   Image,
@@ -21,41 +23,92 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
+  View,
+  ActivityIndicator,
+  RefreshControl,
+  Platform
 } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import KeyboardAwareWrapper from '../KeyboardAwareWrapper';
 import { InputField, ProfilePhoto, SettingItem, Tab, ToggleSwitch } from '../ui';
+import { companiesService, employeesService, authService } from '@/services';
+import ChangePasswordModal from './ChangePasswordModal';
 
 export default function ConfigurationCompany() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState('perfil'); // perfil, lecheros, configuracion
-  const [companyName, setCompanyName] = useState('Finca Santa María');
-  const [email, setEmail] = useState('admin@fincasantamaria.com');
-  const [phone, setPhone] = useState('+57 123 456 7890');
-  const [address, setAddress] = useState('Vereda La Esperanza, Km 5');
-  const [adminName, setAdminName] = useState('María González');
+  const [companyName, setCompanyName] = useState('');
+  const [companyNit, setCompanyNit] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [address, setAddress] = useState('');
+  const [adminName, setAdminName] = useState('');
   const [notifications, setNotifications] = useState(true);
   const [darkMode, setDarkMode] = useState(false);
 
-  // Datos de ejemplo para lecheros
-  const employees = [
-    {
-      id: 1,
-      name: 'Carlos Méndez',
-      role: 'Admin',
-      email: 'carlos@finca.com',
-      avatar: null,
-      isActive: true
-    },
-    {
-      id: 2,
-      name: 'José Rivera',
-      role: 'Lechero',
-      email: 'jose@finca.com',
-      avatar: null,
-      isActive: true
+  // Backend integration states
+  const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [employees, setEmployees] = useState([]);
+  const [invitationCode, setInvitationCode] = useState('');
+  const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
+
+  useEffect(() => {
+    loadProfile();
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'lecheros') {
+      loadEmployees();
     }
-  ];
+  }, [activeTab]);
+
+  const loadProfile = async () => {
+    try {
+      setLoading(true);
+      const data = await companiesService.getProfile();
+
+      setCompanyName(data.name || '');
+      setCompanyNit(data.nit || '');
+      setEmail(data.email || '');
+      setPhone(data.phone || '');
+      setAddress(data.address || '');
+      setAdminName(data.adminName || data.ownerName || '');
+      setInvitationCode(data.invitationCode || '');
+    } catch (error) {
+      console.error('Error loading profile:', error);
+      Alert.alert('Error', 'No se pudo cargar el perfil de la empresa');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  const loadEmployees = async () => {
+    try {
+      setLoading(true);
+      const data = await employeesService.getEmployees();
+      
+      // Ensure employees is always an array
+      let employeesList = [];
+      if (Array.isArray(data)) {
+        employeesList = data;
+      } else if (data && Array.isArray(data.employees)) {
+        employeesList = data.employees;
+      }
+      
+      setEmployees(employeesList);
+    } catch (error) {
+      console.error('Error loading employees:', error);
+      Alert.alert('Error', 'No se pudieron cargar los empleados');
+      setEmployees([]); // Set empty array on error
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
 
   const EmployeeCard = ({ employee }) => (
     <View style={styles.employeeCard}>
@@ -89,122 +142,315 @@ export default function ConfigurationCompany() {
       "Acciones del Empleado",
       "Selecciona una acción",
       [
-        { text: "Editar", onPress: () => console.log("Edit employee", employeeId) },
-        { text: "Desactivar", onPress: () => console.log("Deactivate employee", employeeId) },
-        { text: "Eliminar", style: "destructive", onPress: () => console.log("Delete employee", employeeId) },
+        {
+          text: "Desactivar",
+          onPress: async () => {
+            try {
+              await employeesService.updateEmployee(employeeId, { isActive: false });
+              Alert.alert('Éxito', 'Empleado desactivado correctamente');
+              loadEmployees();
+            } catch (error) {
+              Alert.alert('Error', error.message || 'No se pudo desactivar el empleado');
+            }
+          }
+        },
+        {
+          text: "Eliminar",
+          style: "destructive",
+          onPress: async () => {
+            Alert.alert(
+              'Confirmar eliminación',
+              '¿Estás seguro de eliminar este empleado?',
+              [
+                { text: 'Cancelar', style: 'cancel' },
+                {
+                  text: 'Eliminar',
+                  style: 'destructive',
+                  onPress: async () => {
+                    try {
+                      await employeesService.deleteEmployee(employeeId);
+                      Alert.alert('Éxito', 'Empleado eliminado correctamente');
+                      loadEmployees();
+                    } catch (error) {
+                      Alert.alert('Error', error.message || 'No se pudo eliminar el empleado');
+                    }
+                  }
+                }
+              ]
+            );
+          }
+        },
         { text: "Cancelar", style: "cancel" }
       ]
     );
   };
 
-  const handleAddEmployee = () => {
-    Alert.alert("Agregar Lechero", "Funcionalidad para agregar nuevo lechero");
+  const handleAddEmployee = async () => {
+    try {
+      if (!invitationCode) {
+        // Generate new code
+        const data = await companiesService.generateInvitationCode();
+        setInvitationCode(data.code || data.invitationCode);
+      }
+
+      Alert.alert(
+        "Código de Invitación",
+        `Comparte este código con el nuevo empleado:\n\n${invitationCode}`,
+        [
+          {
+            text: "Copiar",
+            onPress: async () => {
+              await Clipboard.setStringAsync(invitationCode);
+              Alert.alert('Copiado', 'Código copiado al portapapeles');
+            }
+          },
+          { text: "Cerrar" }
+        ]
+      );
+    } catch (error) {
+      Alert.alert('Error', error.message || 'No se pudo generar el código de invitación');
+    }
   };
 
   const handleChangePhoto = () => {
     Alert.alert("Cambiar Foto", "Funcionalidad para cambiar foto de perfil");
   };
 
-  const handleSaveProfile = () => {
-    Alert.alert("Perfil Guardado", "Los cambios han sido guardados exitosamente");
+  const handleSaveProfile = async () => {
+    try {
+      // Validate required fields
+      if (!companyName) {
+        Alert.alert('Error', 'Por favor completa el nombre de la empresa');
+        return;
+      }
+
+      setSaving(true);
+
+      const profileData = {
+        name: companyName,
+        nit: companyNit || undefined,
+        phone: phone || undefined,
+        address: address || undefined,
+      };
+
+      console.log('Sending profile data:', profileData);
+
+      await companiesService.updateProfile(profileData);
+
+      Alert.alert('Éxito', 'Los cambios han sido guardados exitosamente');
+
+      // Reload profile to get updated data
+      loadProfile();
+    } catch (error) {
+      console.error('Error saving profile:', error);
+      const errorMessage = error.response?.data?.message || error.message || 'No se pudieron guardar los cambios';
+      Alert.alert('Error', Array.isArray(errorMessage) ? errorMessage.join(', ') : errorMessage);
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const renderPerfil = () => (
-    <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
-      {/* Foto de Perfil */}
-      <View style={styles.card}>
-        <ProfilePhoto
-          name={adminName}
-          role="Administrador"
-          company={companyName}
-          onChangePhoto={handleChangePhoto}
-        />
-      </View>
+  const handleLogout = async () => {
+    Alert.alert(
+      'Cerrar Sesión',
+      '¿Estás seguro de que deseas cerrar sesión?',
+      [
+        {
+          text: 'Cancelar',
+          style: 'cancel'
+        },
+        {
+          text: 'Cerrar Sesión',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await authService.logout();
+              router.replace('/login');
+            } catch (error) {
+              console.error('Error during logout:', error);
+              // Still navigate to login even if logout fails
+              router.replace('/login');
+            }
+          }
+        }
+      ]
+    );
+  };
 
-      {/* Información de la Empresa */}
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Información de la Empresa</Text>
-        
-        <InputField
-          label="Nombre de la Empresa"
-          value={companyName}
-          onChangeText={setCompanyName}
-          placeholder="Nombre de la finca"
-          icon={User}
-        />
-
-        <InputField
-          label="Email Corporativo"
-          value={email}
-          onChangeText={setEmail}
-          placeholder="email@empresa.com"
-          icon={Mail}
-        />
-
-        <InputField
-          label="Teléfono"
-          value={phone}
-          onChangeText={setPhone}
-          placeholder="+57 123 456 7890"
-          icon={Phone}
-        />
-
-        <InputField
-          label="Dirección"
-          value={address}
-          onChangeText={setAddress}
-          placeholder="Dirección de la finca"
-          icon={MapPin}
-        />
-      </View>
-
-      {/* Información Personal del Administrador */}
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Información Personal</Text>
-        
-        <InputField
-          label="Nombre Completo"
-          value={adminName}
-          onChangeText={setAdminName}
-          placeholder="Nombre del administrador"
-          icon={User}
-        />
-      </View>
-
-      <TouchableOpacity style={styles.saveButton} onPress={handleSaveProfile}>
-        <Text style={styles.saveButtonText}>Guardar Cambios</Text>
-      </TouchableOpacity>
-
-      <View style={styles.bottomSpacing} />
-    </ScrollView>
-  );
-
-  const renderLecheros = () => (
-    <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
-      {/* Header con botón agregar */}
-      <View style={styles.employeesHeader}>
-        <View>
-          <Text style={styles.employeesTitle}>Usuarios / Lecheros</Text>
-          <Text style={styles.employeesSubtitle}>Gestiona los usuarios de tu finca</Text>
+  const renderPerfil = () => {
+    if (loading && !refreshing) {
+      return (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#60A5FA" />
+          <Text style={styles.loadingText}>Cargando perfil...</Text>
         </View>
-        <TouchableOpacity style={styles.addEmployeeButton} onPress={handleAddEmployee}>
-          <Plus size={16} color="#FFFFFF" />
-          <Text style={styles.addEmployeeText}>Invitar</Text>
+      );
+    }
+
+    return (
+      <ScrollView
+        style={styles.scrollContainer}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={() => {
+            setRefreshing(true);
+            loadProfile();
+          }} />
+        }
+      >
+        {/* Foto de Perfil */}
+        <View style={styles.card}>
+          <ProfilePhoto
+            name={adminName || 'Usuario'}
+            role="Administrador"
+            company={companyName || 'Empresa'}
+            onChangePhoto={handleChangePhoto}
+          />
+        </View>
+
+        {/* Información de la Empresa */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Información de la Empresa</Text>
+
+          <InputField
+            label="Nombre de la Empresa"
+            value={companyName}
+            onChangeText={setCompanyName}
+            placeholder="Nombre de la finca"
+            icon={User}
+          />
+
+          <InputField
+            label="NIT/ID"
+            value={companyNit}
+            onChangeText={setCompanyNit}
+            placeholder="NIT o ID de la empresa"
+            icon={User}
+          />
+
+          <InputField
+            label="Email Corporativo"
+            value={email}
+            onChangeText={setEmail}
+            placeholder="email@empresa.com"
+            icon={Mail}
+            keyboardType="email-address"
+            editable={false}
+          />
+
+          <InputField
+            label="Teléfono"
+            value={phone}
+            onChangeText={setPhone}
+            placeholder="+57 123 456 7890"
+            icon={Phone}
+            keyboardType="phone-pad"
+          />
+
+          <InputField
+            label="Dirección"
+            value={address}
+            onChangeText={setAddress}
+            placeholder="Dirección de la finca"
+            icon={MapPin}
+          />
+        </View>
+
+        {/* Código de Invitación */}
+        {invitationCode && (
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Código de Invitación</Text>
+            <View style={styles.invitationCodeContainer}>
+              <Text style={styles.invitationCodeText}>{invitationCode}</Text>
+              <TouchableOpacity
+                style={styles.copyButton}
+                onPress={async () => {
+                  await Clipboard.setStringAsync(invitationCode);
+                  Alert.alert('Copiado', 'Código copiado al portapapeles');
+                }}
+              >
+                <Copy size={20} color="#60A5FA" />
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.invitationCodeHint}>
+              Comparte este código con nuevos empleados para que se unan a tu empresa
+            </Text>
+          </View>
+        )}
+
+        <TouchableOpacity
+          style={[styles.saveButton, saving && styles.saveButtonDisabled]}
+          onPress={handleSaveProfile}
+          disabled={saving}
+        >
+          {saving ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <Text style={styles.saveButtonText}>Guardar Cambios</Text>
+          )}
         </TouchableOpacity>
-      </View>
 
-      {/* Lista de empleados */}
-      <View style={styles.card}>
-        <View style={styles.employeesContainer}>
-          {employees.map((employee) => (
-            <EmployeeCard key={employee.id} employee={employee} />
-          ))}
+        <View style={styles.bottomSpacing} />
+      </ScrollView>
+    );
+  };
+
+  const renderLecheros = () => {
+    if (loading && !refreshing) {
+      return (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#60A5FA" />
+          <Text style={styles.loadingText}>Cargando empleados...</Text>
         </View>
-      </View>
+      );
+    }
 
-      <View style={styles.bottomSpacing} />
-    </ScrollView>
-  );
+    return (
+      <ScrollView
+        style={styles.scrollContainer}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={() => {
+            setRefreshing(true);
+            loadEmployees();
+          }} />
+        }
+      >
+        {/* Header con botón agregar */}
+        <View style={styles.employeesHeader}>
+          <View>
+            <Text style={styles.employeesTitle}>Usuarios / Lecheros</Text>
+            <Text style={styles.employeesSubtitle}>Gestiona los usuarios de tu finca</Text>
+          </View>
+          <TouchableOpacity style={styles.addEmployeeButton} onPress={handleAddEmployee}>
+            <Plus size={16} color="#FFFFFF" />
+            <Text style={styles.addEmployeeText}>Invitar</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Lista de empleados */}
+        {!Array.isArray(employees) || employees.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Users size={48} color="#9CA3AF" />
+            <Text style={styles.emptyTitle}>Sin empleados</Text>
+            <Text style={styles.emptyText}>
+              Invita a tu primer empleado usando el botón &quot;Invitar&quot;
+            </Text>
+          </View>
+        ) : (
+          <View style={styles.card}>
+            <View style={styles.employeesContainer}>
+              {employees.map((employee) => (
+                <EmployeeCard key={employee.id} employee={employee} />
+              ))}
+            </View>
+          </View>
+        )}
+
+        <View style={styles.bottomSpacing} />
+      </ScrollView>
+    );
+  };
 
   const renderConfiguracion = () => (
     <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
@@ -249,7 +495,7 @@ export default function ConfigurationCompany() {
           title="Cambiar Contraseña"
           subtitle="Actualiza tu contraseña"
           icon={Lock}
-          onPress={() => Alert.alert("Cambiar Contraseña", "Funcionalidad en desarrollo")}
+          onPress={() => setShowChangePasswordModal(true)}
         />
 
         <SettingItem
@@ -269,6 +515,18 @@ export default function ConfigurationCompany() {
           subtitle="Eliminar permanentemente tu cuenta"
           icon={Trash2}
           onPress={() => Alert.alert("Eliminar Cuenta", "Esta acción no se puede deshacer")}
+        />
+      </View>
+
+      {/* Cerrar Sesión */}
+      <View style={styles.card}>
+        <SettingItem
+          title="Cerrar Sesión"
+          subtitle="Salir de tu cuenta"
+          icon={LogOut}
+          onPress={handleLogout}
+          iconColor="#EF4444"
+          iconBackgroundColor="#FEE2E2"
         />
       </View>
 
@@ -312,6 +570,12 @@ export default function ConfigurationCompany() {
           {activeTab === 'lecheros' && renderLecheros()}
           {activeTab === 'configuracion' && renderConfiguracion()}
         </View>
+
+        {/* Change Password Modal */}
+        <ChangePasswordModal
+          visible={showChangePasswordModal}
+          onClose={() => setShowChangePasswordModal(false)}
+        />
       </KeyboardAwareWrapper>
     </SafeAreaView>
   );
@@ -343,14 +607,18 @@ const styles = StyleSheet.create({
     padding: 16,
     marginTop: 20,
     marginBottom: 4,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
     elevation: 5,
+    ...(Platform.OS === 'web' ? {
+      boxShadow: '0px 2px 3.84px rgba(0, 0, 0, 0.1)',
+    } : {
+      shadowColor: '#000',
+      shadowOffset: {
+        width: 0,
+        height: 2,
+      },
+      shadowOpacity: 0.1,
+      shadowRadius: 3.84,
+    }),
   },
   cardTitle: {
     fontSize: 16,
@@ -471,5 +739,64 @@ const styles = StyleSheet.create({
   },
   bottomSpacing: {
     height: 40,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+  loadingText: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginTop: 12,
+  },
+  saveButtonDisabled: {
+    opacity: 0.6,
+  },
+  invitationCodeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F9FAFB',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    padding: 12,
+    marginBottom: 8,
+  },
+  invitationCodeText: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#111827',
+    letterSpacing: 2,
+  },
+  copyButton: {
+    padding: 8,
+  },
+  invitationCodeHint: {
+    fontSize: 12,
+    color: '#6B7280',
+    lineHeight: 16,
+  },
+  emptyState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+    paddingHorizontal: 40,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#111827',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  emptyText: {
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
+    lineHeight: 20,
   },
 });

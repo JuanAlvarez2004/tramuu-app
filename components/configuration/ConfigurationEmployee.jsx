@@ -1,98 +1,236 @@
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import {
   Bell,
   Lock,
+  LogOut,
   Mail,
   Phone,
   Settings,
   Shield,
-  Trash2,
-  User
+  User,
+  Building2,
+  IdCard
 } from 'lucide-react-native';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Alert,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
+  View,
+  ActivityIndicator,
+  RefreshControl,
+  Platform
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import KeyboardAwareWrapper from '../KeyboardAwareWrapper';
 import { InputField, ProfilePhoto, SettingItem, Tab, ToggleSwitch } from '../ui';
+import { employeesService, authService } from '@/services';
+import ChangePasswordModal from './ChangePasswordModal';
 
 export default function ConfigurationEmployee() {
-  const [activeTab, setActiveTab] = useState('perfil'); // perfil, configuracion
-  const [userName, setUserName] = useState('José Rivera');
-  const [email, setEmail] = useState('jose.rivera@finca.com');
-  const [phone, setPhone] = useState('+57 321 654 9870');
+  const router = useRouter();
+  const [activeTab, setActiveTab] = useState('perfil');
+  const [employeeName, setEmployeeName] = useState('');
+  const [documentId, setDocumentId] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [companyName, setCompanyName] = useState('');
   const [notifications, setNotifications] = useState(true);
   const [darkMode, setDarkMode] = useState(false);
 
-  const handleChangePhoto = () => {
-    Alert.alert("Cambiar Foto", "Funcionalidad para cambiar foto de perfil");
+  // Backend integration states
+  const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
+
+  useEffect(() => {
+    loadProfile();
+  }, []);
+
+  const loadProfile = async () => {
+    try {
+      setLoading(true);
+      const data = await employeesService.getProfile();
+
+      setEmployeeName(data.name || '');
+      setDocumentId(data.documentId || '');
+      setEmail(data.email || '');
+      setPhone(data.phone || '');
+      setCompanyName(data.companyName || '');
+    } catch (error) {
+      console.error('Error loading profile:', error);
+      Alert.alert('Error', 'No se pudo cargar el perfil');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   };
 
-  const handleSaveProfile = () => {
-    Alert.alert("Perfil Guardado", "Los cambios han sido guardados exitosamente");
+  const handleSaveProfile = async () => {
+    try {
+      if (!employeeName) {
+        Alert.alert('Error', 'Por favor completa tu nombre');
+        return;
+      }
+
+      setSaving(true);
+
+      const profileData = {
+        name: employeeName,
+        documentId: documentId || undefined,
+        phone: phone || undefined,
+      };
+
+      console.log('Sending profile data:', profileData);
+
+      await employeesService.updateProfile(profileData);
+
+      Alert.alert('Éxito', 'Los cambios han sido guardados exitosamente');
+
+      loadProfile();
+    } catch (error) {
+      console.error('Error saving profile:', error);
+      const errorMessage = error.response?.data?.message || error.message || 'No se pudieron guardar los cambios';
+      Alert.alert('Error', Array.isArray(errorMessage) ? errorMessage.join(', ') : errorMessage);
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const renderPerfil = () => (
-    <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
-      {/* Foto de Perfil */}
-      <View style={styles.card}>
-        <ProfilePhoto
-          name={userName}
-          role="Lechero"
-          company="Finca Santa María"
-          onChangePhoto={handleChangePhoto}
-        />
-      </View>
+  const handleLogout = async () => {
+    Alert.alert(
+      'Cerrar Sesión',
+      '¿Estás seguro de que deseas cerrar sesión?',
+      [
+        {
+          text: 'Cancelar',
+          style: 'cancel'
+        },
+        {
+          text: 'Cerrar Sesión',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await authService.logout();
+              router.replace('/login');
+            } catch (error) {
+              console.error('Error during logout:', error);
+              // Still navigate to login even if logout fails
+              router.replace('/login');
+            }
+          }
+        }
+      ]
+    );
+  };
 
-      {/* Información Personal */}
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Información Personal</Text>
-        
-        <InputField
-          label="Nombre Completo"
-          value={userName}
-          onChangeText={setUserName}
-          placeholder="Tu nombre completo"
-          icon={User}
-        />
+  const renderPerfil = () => {
+    if (loading && !refreshing) {
+      return (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#60A5FA" />
+          <Text style={styles.loadingText}>Cargando perfil...</Text>
+        </View>
+      );
+    }
 
-        <InputField
-          label="Email"
-          value={email}
-          onChangeText={setEmail}
-          placeholder="tu@email.com"
-          icon={Mail}
-        />
+    return (
+      <ScrollView
+        style={styles.scrollContainer}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={() => {
+            setRefreshing(true);
+            loadProfile();
+          }} />
+        }
+      >
+        {/* Foto de Perfil */}
+        <View style={styles.card}>
+          <ProfilePhoto
+            name={employeeName || 'Empleado'}
+            role="Lechero"
+            company={companyName || 'Empresa'}
+            onChangePhoto={() => Alert.alert("Cambiar Foto", "Funcionalidad para cambiar foto de perfil")}
+          />
+        </View>
 
-        <InputField
-          label="Teléfono"
-          value={phone}
-          onChangeText={setPhone}
-          placeholder="+57 123 456 7890"
-          icon={Phone}
-        />
-      </View>
+        {/* Empresa Afiliada */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Empresa Afiliada</Text>
+          <View style={styles.companyInfoContainer}>
+            <Building2 size={24} color="#60A5FA" />
+            <Text style={styles.companyNameText}>{companyName || 'No asignado'}</Text>
+          </View>
+        </View>
 
-      <TouchableOpacity style={styles.saveButton} onPress={handleSaveProfile}>
-        <Text style={styles.saveButtonText}>Guardar Cambios</Text>
-      </TouchableOpacity>
+        {/* Información Personal */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Información Personal</Text>
 
-      <View style={styles.bottomSpacing} />
-    </ScrollView>
-  );
+          <InputField
+            label="Nombre Completo"
+            value={employeeName}
+            onChangeText={setEmployeeName}
+            placeholder="Tu nombre completo"
+            icon={User}
+          />
+
+          <InputField
+            label="CC/ID"
+            value={documentId}
+            onChangeText={setDocumentId}
+            placeholder="Número de documento"
+            icon={IdCard}
+            keyboardType="numeric"
+          />
+
+          <InputField
+            label="Email"
+            value={email}
+            onChangeText={setEmail}
+            placeholder="tu.email@ejemplo.com"
+            icon={Mail}
+            keyboardType="email-address"
+            editable={false}
+          />
+
+          <InputField
+            label="Teléfono"
+            value={phone}
+            onChangeText={setPhone}
+            placeholder="+57 123 456 7890"
+            icon={Phone}
+            keyboardType="phone-pad"
+          />
+        </View>
+
+        <TouchableOpacity
+          style={[styles.saveButton, saving && styles.saveButtonDisabled]}
+          onPress={handleSaveProfile}
+          disabled={saving}
+        >
+          {saving ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <Text style={styles.saveButtonText}>Guardar Cambios</Text>
+          )}
+        </TouchableOpacity>
+
+        <View style={styles.bottomSpacing} />
+      </ScrollView>
+    );
+  };
 
   const renderConfiguracion = () => (
     <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
       {/* Configuración de la Aplicación */}
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Configuración de la Aplicación</Text>
-        
+
         <SettingItem
           title="Notificaciones"
           subtitle="Recibe alertas importantes"
@@ -125,12 +263,12 @@ export default function ConfigurationEmployee() {
       {/* Seguridad */}
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Seguridad</Text>
-        
+
         <SettingItem
           title="Cambiar Contraseña"
           subtitle="Actualiza tu contraseña"
           icon={Lock}
-          onPress={() => Alert.alert("Cambiar Contraseña", "Funcionalidad en desarrollo")}
+          onPress={() => setShowChangePasswordModal(true)}
         />
 
         <SettingItem
@@ -141,37 +279,15 @@ export default function ConfigurationEmployee() {
         />
       </View>
 
-      {/* Información de la Cuenta */}
+      {/* Cerrar Sesión */}
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Información de la Cuenta</Text>
-        
-        <View style={styles.infoItem}>
-          <Text style={styles.infoLabel}>Tipo de Cuenta</Text>
-          <Text style={styles.infoValue}>Empleado</Text>
-        </View>
-        
-        <View style={styles.infoItem}>
-          <Text style={styles.infoLabel}>Empresa</Text>
-          <Text style={styles.infoValue}>Finca Santa María</Text>
-        </View>
-        
-        <View style={styles.infoItem}>
-          <Text style={styles.infoLabel}>Estado</Text>
-          <View style={styles.statusBadge}>
-            <Text style={styles.statusText}>Activo</Text>
-          </View>
-        </View>
-      </View>
-
-      {/* Acción Peligrosa */}
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Cuenta</Text>
-        
         <SettingItem
-          title="Salir de la Empresa"
-          subtitle="Desvincularte de esta empresa"
-          icon={Trash2}
-          onPress={() => Alert.alert("Salir de la Empresa", "¿Estás seguro de que quieres salir de esta empresa?")}
+          title="Cerrar Sesión"
+          subtitle="Salir de tu cuenta"
+          icon={LogOut}
+          onPress={handleLogout}
+          iconColor="#EF4444"
+          iconBackgroundColor="#FEE2E2"
         />
       </View>
 
@@ -181,14 +297,14 @@ export default function ConfigurationEmployee() {
 
   return (
     <SafeAreaView style={styles.container} edges={["right", "left"]}>
-      <Stack.Screen options={{ title: "Configuración" }} />
+      <Stack.Screen options={{ title: "Mi Perfil" }} />
       <KeyboardAwareWrapper keyboardVerticalOffset={100}>
 
         {/* Tabs */}
         <View style={styles.tabsContainer}>
           <Tab
             id="perfil"
-            title="Mi Perfil"
+            title="Perfil"
             icon={User}
             isSelected={activeTab === 'perfil'}
             onPress={() => setActiveTab('perfil')}
@@ -207,6 +323,12 @@ export default function ConfigurationEmployee() {
           {activeTab === 'perfil' && renderPerfil()}
           {activeTab === 'configuracion' && renderConfiguracion()}
         </View>
+
+        {/* Change Password Modal */}
+        <ChangePasswordModal
+          visible={showChangePasswordModal}
+          onClose={() => setShowChangePasswordModal(false)}
+        />
       </KeyboardAwareWrapper>
     </SafeAreaView>
   );
@@ -238,20 +360,38 @@ const styles = StyleSheet.create({
     padding: 16,
     marginTop: 20,
     marginBottom: 4,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
     elevation: 5,
+    ...(Platform.OS === 'web' ? {
+      boxShadow: '0px 2px 3.84px rgba(0, 0, 0, 0.1)',
+    } : {
+      shadowColor: '#000',
+      shadowOffset: {
+        width: 0,
+        height: 2,
+      },
+      shadowOpacity: 0.1,
+      shadowRadius: 3.84,
+    }),
   },
   cardTitle: {
     fontSize: 16,
     fontWeight: '600',
     color: '#111827',
     marginBottom: 16,
+  },
+  companyInfoContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    backgroundColor: '#EBF4FF',
+    borderRadius: 8,
+    gap: 12,
+  },
+  companyNameText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#111827',
+    flex: 1,
   },
   saveButton: {
     backgroundColor: '#60A5FA',
@@ -266,36 +406,21 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#FFFFFF',
   },
-  infoItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-  },
-  infoLabel: {
-    fontSize: 14,
-    color: '#6B7280',
-    fontWeight: '500',
-  },
-  infoValue: {
-    fontSize: 14,
-    color: '#111827',
-    fontWeight: '600',
-  },
-  statusBadge: {
-    backgroundColor: '#10B981',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  statusText: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#FFFFFF',
+  saveButtonDisabled: {
+    opacity: 0.6,
   },
   bottomSpacing: {
     height: 40,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+  loadingText: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginTop: 12,
   },
 });
