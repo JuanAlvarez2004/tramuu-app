@@ -59,7 +59,7 @@ class DashboardService {
       const response = await api.get(API_ENDPOINTS.DASHBOARD.PRODUCTION, {
         params: { period },
       });
-      return response.data;
+      return response.data.data || response.data;
     } catch (error) {
       console.error('Error fetching production by period:', error);
       throw error;
