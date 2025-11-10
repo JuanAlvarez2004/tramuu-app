@@ -13,7 +13,7 @@ export const TEST_CREDENTIALS = {
     userId: '2569f03b-3e14-44f2-9a16-381fd92d7188',
     companyId: 'a2ffe1a6-6f63-48b7-8502-1ec7b0c65b04',
     companyName: 'test',
-    invitationCode: '1E834B35',
+    invitationCode: 'BA13C1A4', // ✅ Updated from backend response (changes when regenerated)
   },
 
   // Usuario Empleado
@@ -30,19 +30,19 @@ export const TEST_CREDENTIALS = {
 // Datos de ejemplo para tests de creación
 export const TEST_DATA_TEMPLATES = {
   COW: {
+    // Backend solo acepta: name, cowId, breed, status
+    // Rechaza: birthDate, weight, code
     name: (suffix = Date.now()) => `Test Cow ${suffix}`,
-    code: (suffix = Date.now()) => `COW${suffix}`,
+    cowId: (suffix = Date.now()) => `COW${suffix}`,
     breed: 'Holstein',
-    birthDate: '2023-01-01',
-    weight: 450,
-    status: 'active',
+    status: 'Lactando', // Estados válidos: Lactando, Seca, Novilla, etc.
   },
 
   MILKING: {
-    liters: 15.5,
-    session: 'AM', // 'AM' o 'PM'
-    date: new Date().toISOString().split('T')[0], // YYYY-MM-DD
-    observations: 'Test milking record',
+    shift: 'AM', // ✅ Cambiado de 'session' a 'shift'
+    totalLiters: 15.5, // ✅ Cambiado de 'liters' a 'totalLiters'
+    temperature: 4.0,
+    notes: 'Test milking record', // ✅ Cambiado de 'observations' a 'notes'
   },
 
   QUALITY_TEST: {
@@ -52,33 +52,46 @@ export const TEST_DATA_TEMPLATES = {
     solids: 12.5,
     temperature: 4.0,
     ph: 6.7,
-    testDate: new Date().toISOString().split('T')[0],
+    acidity: 16.0, // ✅ Agregado
+    ufc: 100000, // ✅ Agregado
+    observations: 'Test quality test',
+    // ❌ REMOVIDO: testDate (se agrega dinámicamente en los tests)
+    // ❌ REMOVIDO: date como función
   },
 
   INVENTORY_ITEM: {
-    name: (suffix = Date.now()) => `Test Product ${suffix}`,
-    code: (suffix = Date.now()) => `PROD${suffix}`,
-    category: 'supplies',
+    batchId: (suffix = Date.now()) => `BATCH${suffix}`, // ✅ Cambiado según documentación
     quantity: 100,
-    unit: 'units',
-    minStock: 10,
-    price: 50.00,
+    category: 'FRESH_MILK', // ✅ Cambiado a valor válido
+    status: 'COLD', // ✅ Agregado según documentación
+    temperature: 4.0, // ✅ Agregado
+    notes: 'Test inventory item',
   },
 
   DELIVERY: {
+    clientName: 'Test Client', // ✅ Agregado según documentación
     liters: 200,
     destination: 'Test Dairy Plant',
     deliveryDate: new Date().toISOString().split('T')[0],
-    status: 'pending',
-    observations: 'Test delivery',
+    status: 'PENDING', // ✅ Cambiado a mayúscula
+    notes: 'Test delivery', // ✅ Cambiado de 'observations' a 'notes'
+  },
+
+  EMPLOYEE: {
+    name: (suffix = Date.now()) => `Test Employee ${suffix}`,
+    phone: '3001234567',
+    email: (suffix = Date.now()) => `test.employee.${suffix}@tramuu.test`,
+    password: 'TestPassword123!',
+    role: 'WORKER',
   },
 };
 
 // Timeouts para diferentes tipos de operaciones
+// ✅ Aumentados para servidor free tier (Render cold start)
 export const TEST_TIMEOUTS = {
-  SHORT: 30000,    // 30 segundos - operaciones rápidas
-  MEDIUM: 60000,   // 1 minuto - operaciones normales
-  LONG: 120000,    // 2 minutos - operaciones lentas o batch
+  SHORT: 60000,    // 1 minuto - operaciones rápidas
+  MEDIUM: 120000,  // 2 minutos - operaciones normales
+  LONG: 180000,    // 3 minutos - operaciones lentas o batch
 };
 
 // Pausas entre tests para evitar rate limiting

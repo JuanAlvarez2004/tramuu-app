@@ -26,7 +26,7 @@ describe('Cows Service - Integration Tests (REAL API)', () => {
   // Datos de prueba
   const TEST_COW_DATA = {
     name: TEST_DATA_TEMPLATES.COW.name(),
-    code: TEST_DATA_TEMPLATES.COW.code(),
+    cowId: TEST_DATA_TEMPLATES.COW.cowId(), // ✅ Cambiado de 'code' a 'cowId'
     breed: TEST_DATA_TEMPLATES.COW.breed,
     birthDate: TEST_DATA_TEMPLATES.COW.birthDate,
     weight: TEST_DATA_TEMPLATES.COW.weight,
@@ -76,7 +76,7 @@ describe('Cows Service - Integration Tests (REAL API)', () => {
         const firstCow = result[0];
         expect(firstCow.id).toBeDefined();
         expect(firstCow.name).toBeDefined();
-        expect(firstCow.code).toBeDefined();
+        expect(firstCow.code).toBeDefined(); // Backend returns 'code' in response
       }
 
       console.log('✅ Cows listed:', {
@@ -121,7 +121,7 @@ describe('Cows Service - Integration Tests (REAL API)', () => {
       expect(result).toBeDefined();
       expect(result.id).toBeDefined();
       expect(result.name).toBe(TEST_COW_DATA.name);
-      expect(result.code).toBe(TEST_COW_DATA.code);
+      expect(result.code).toBe(TEST_COW_DATA.cowId); // Backend returns 'code', we send 'cowId'
       expect(result.breed).toBe(TEST_COW_DATA.breed);
 
       createdCowIds.push(result.id);
@@ -146,19 +146,19 @@ describe('Cows Service - Integration Tests (REAL API)', () => {
     }, 120000);
 
     it('should prevent duplicate cow codes', async () => {
-      console.log('🧪 Testing duplicate code validation');
+      console.log('🧪 Testing duplicate cowId validation');
 
       // Crear primera vaca
       const firstCow = await cowsService.createCow(TEST_COW_DATA);
       createdCowIds.push(firstCow.id);
 
       try {
-        // Intentar crear con el mismo código
+        // Intentar crear con el mismo cowId
         await cowsService.createCow(TEST_COW_DATA);
-        console.log('⚠️  Backend allows duplicate cow codes');
+        console.log('⚠️  Backend allows duplicate cow IDs');
       } catch (error) {
         expect(error).toBeDefined();
-        console.log('✅ Duplicate code prevented');
+        console.log('✅ Duplicate cowId prevented');
       }
     }, 120000);
   });
@@ -172,7 +172,7 @@ describe('Cows Service - Integration Tests (REAL API)', () => {
     beforeAll(async () => {
       const created = await cowsService.createCow({
         ...TEST_COW_DATA,
-        code: `COW_GETBYID_${Date.now()}`,
+        cowId: `COW_GETBYID_${Date.now()}`, // Unique cowId for this test
       });
       testCowId = created.id;
       createdCowIds.push(testCowId);
@@ -216,7 +216,7 @@ describe('Cows Service - Integration Tests (REAL API)', () => {
     beforeAll(async () => {
       const created = await cowsService.createCow({
         ...TEST_COW_DATA,
-        code: `COW_UPDATE_${Date.now()}`,
+        cowId: `COW_UPDATE_${Date.now()}`, // Unique cowId for this test
       });
       testCowId = created.id;
       createdCowIds.push(testCowId);
@@ -226,9 +226,9 @@ describe('Cows Service - Integration Tests (REAL API)', () => {
       console.log('🧪 Testing PUT /cows/:id');
 
       const updatedData = {
-        ...TEST_COW_DATA,
         name: 'Updated Test Cow',
-        weight: 500,
+        breed: 'Jersey', // Only use fields accepted by backend
+        status: 'Seca',
       };
 
       const result = await cowsService.updateCow(testCowId, updatedData);
@@ -236,12 +236,12 @@ describe('Cows Service - Integration Tests (REAL API)', () => {
       expect(result).toBeDefined();
       expect(result.id).toBe(testCowId);
       expect(result.name).toBe(updatedData.name);
-      expect(result.weight).toBe(updatedData.weight);
+      expect(result.breed).toBe(updatedData.breed);
 
       console.log('✅ Cow updated:', {
         id: result.id,
         name: result.name,
-        weight: result.weight,
+        breed: result.breed,
       });
     }, 120000);
 
@@ -249,13 +249,13 @@ describe('Cows Service - Integration Tests (REAL API)', () => {
       console.log('🧪 Testing partial update');
 
       const partialUpdate = {
-        weight: 550,
+        status: 'Novilla', // Only use backend-accepted fields
       };
 
       try {
         const result = await cowsService.updateCow(testCowId, partialUpdate);
         expect(result).toBeDefined();
-        expect(result.weight).toBe(partialUpdate.weight);
+        expect(result.status).toBe(partialUpdate.status);
         console.log('✅ Partial update successful');
       } catch (error) {
         console.log('ℹ️  Partial updates not supported:', error.message);
@@ -273,7 +273,7 @@ describe('Cows Service - Integration Tests (REAL API)', () => {
       // Crear vaca para eliminar
       const created = await cowsService.createCow({
         ...TEST_COW_DATA,
-        code: `COW_DELETE_${Date.now()}`,
+        cowId: `COW_DELETE_${Date.now()}`, // Unique cowId for this test
       });
       const idToDelete = created.id;
 
@@ -311,7 +311,7 @@ describe('Cows Service - Integration Tests (REAL API)', () => {
       const searchTestCow = await cowsService.createCow({
         ...TEST_COW_DATA,
         name: 'SearchTest Holstein Cow',
-        code: `SEARCH_${Date.now()}`,
+        cowId: `SEARCH_${Date.now()}`, // Unique cowId for this test
       });
       createdCowIds.push(searchTestCow.id);
     });
@@ -407,14 +407,14 @@ describe('Cows Service - Integration Tests (REAL API)', () => {
 
       const created = await cowsService.createCow({
         ...TEST_COW_DATA,
-        code: `COW_FIELDS_${Date.now()}`,
+        cowId: `COW_FIELDS_${Date.now()}`, // Unique cowId for this test
       });
       createdCowIds.push(created.id);
 
-      // Campos requeridos
+      // Campos requeridos - Backend returns 'code' (though we send 'cowId')
       expect(created.id).toBeDefined();
       expect(created.name).toBeDefined();
-      expect(created.code).toBeDefined();
+      expect(created.code).toBeDefined(); // Backend returns 'code'
       expect(created.breed).toBeDefined();
 
       console.log('✅ All required fields present');

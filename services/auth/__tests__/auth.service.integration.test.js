@@ -9,7 +9,8 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { TEST_CREDENTIALS } from '../../../__tests__/testConfig';
+import { TEST_CREDENTIALS, TEST_TIMEOUTS } from '../../../__tests__/testConfig';
+import { expectError, generateTestEmail } from '../../../__tests__/testHelpers';
 import authService from '../auth.service';
 
 describe('AuthService - Integration Tests (REAL API)', () => {
@@ -25,19 +26,19 @@ describe('AuthService - Integration Tests (REAL API)', () => {
   };
 
   const NEW_COMPANY = {
-    email: `company.${Date.now()}@tramuu.test`,
+    email: generateTestEmail('company'),
     password: 'TestPassword123!',
     name: 'Test Company Integration',
-    nit_id: `NIT${Date.now()}`,
+    nitId: `NIT${Date.now()}`, // ✅ Cambiado de nit_id a nitId
     phone: '1234567890',
   };
 
   const NEW_EMPLOYEE = {
-    email: `employee.${Date.now()}@tramuu.test`,
+    email: generateTestEmail('employee'),
     password: 'TestPassword123!',
     name: 'Test Employee Integration',
     phone: '0987654321',
-    invitation_code: 'TEST_CODE_123', // Ajusta según tu backend
+    invitationCode: TEST_CREDENTIALS.COMPANY.invitationCode, // ✅ Usar código real
   };
 
   beforeEach(async () => {
@@ -122,9 +123,11 @@ describe('AuthService - Integration Tests (REAL API)', () => {
     it('should fail login with invalid credentials', async () => {
       console.log('🧪 Testing login with invalid credentials');
 
-      await expect(
-        authService.login('invalid@test.com', 'wrongpassword')
-      ).rejects.toThrow();
+      // ✅ Usar expectError en lugar de rejects.toThrow
+      await expectError(
+        authService.login('invalid@test.com', 'wrongpassword'),
+        401
+      );
 
       // Validar que NO se guardó nada en AsyncStorage
       const savedToken = await AsyncStorage.getItem('@tramuu_access_token');
@@ -269,7 +272,7 @@ describe('AuthService - Integration Tests (REAL API)', () => {
       expect(refreshToken).toBeNull();
 
       console.log('✅ Logout successful and data cleared');
-    }, 30000);
+    }, TEST_TIMEOUTS.MEDIUM);
   });
 
   describe('Helper Methods', () => {
@@ -288,7 +291,7 @@ describe('AuthService - Integration Tests (REAL API)', () => {
       expect(currentUser.email).toBe(TEST_COMPANY.email);
 
       console.log('✅ getCurrentUser working correctly');
-    }, 30000);
+    }, TEST_TIMEOUTS.MEDIUM);
 
     it('should check authentication status correctly', async () => {
       console.log('🧪 Testing isAuthenticated');
@@ -310,7 +313,7 @@ describe('AuthService - Integration Tests (REAL API)', () => {
       expect(isAuth).toBe(false);
 
       console.log('✅ isAuthenticated working correctly');
-    }, 30000);
+    }, TEST_TIMEOUTS.MEDIUM);
   });
 
   describe('API Connectivity', () => {
@@ -328,6 +331,6 @@ describe('AuthService - Integration Tests (REAL API)', () => {
         }
         // Otros errores son aceptables (ej: credenciales)
       }
-    }, 30000);
+    }, TEST_TIMEOUTS.LONG);
   });
 });

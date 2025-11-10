@@ -101,19 +101,17 @@ describe('DashboardService - Integration Tests (REAL API)', () => {
       const production = await dashboardService.getProductionByPeriod('day');
 
       expect(production).toBeDefined();
-      expect(Array.isArray(production)).toBe(true);
-
-      // Validar estructura de cada punto de producción
-      if (production.length > 0) {
-        const dataPoint = production[0];
-        expect(dataPoint).toHaveProperty('label');
-        expect(dataPoint).toHaveProperty('value');
-        expect(typeof dataPoint.value).toBe('number');
-      }
+      expect(production).toHaveProperty('period', 'day');
+      expect(production).toHaveProperty('labels');
+      expect(production).toHaveProperty('dataPoints');
+      expect(production).toHaveProperty('summary');
+      expect(Array.isArray(production.labels)).toBe(true);
+      expect(Array.isArray(production.dataPoints)).toBe(true);
 
       console.log('✅ Daily production fetched:', {
-        dataPoints: production.length,
-        totalValue: production.reduce((sum, p) => sum + p.value, 0),
+        period: production.period,
+        dataPointsCount: production.dataPoints.length,
+        labelsCount: production.labels.length,
       });
     }, 30000);
 
@@ -123,10 +121,15 @@ describe('DashboardService - Integration Tests (REAL API)', () => {
       const production = await dashboardService.getProductionByPeriod('week');
 
       expect(production).toBeDefined();
-      expect(Array.isArray(production)).toBe(true);
+      expect(production).toHaveProperty('period', 'week');
+      expect(production).toHaveProperty('labels');
+      expect(production).toHaveProperty('dataPoints');
+      expect(Array.isArray(production.labels)).toBe(true);
+      expect(Array.isArray(production.dataPoints)).toBe(true);
 
       console.log('✅ Weekly production fetched:', {
-        dataPoints: production.length,
+        period: production.period,
+        dataPointsCount: production.dataPoints.length,
       });
     }, 30000);
 
@@ -136,10 +139,15 @@ describe('DashboardService - Integration Tests (REAL API)', () => {
       const production = await dashboardService.getProductionByPeriod('month');
 
       expect(production).toBeDefined();
-      expect(Array.isArray(production)).toBe(true);
+      expect(production).toHaveProperty('period', 'month');
+      expect(production).toHaveProperty('labels');
+      expect(production).toHaveProperty('dataPoints');
+      expect(Array.isArray(production.labels)).toBe(true);
+      expect(Array.isArray(production.dataPoints)).toBe(true);
 
       console.log('✅ Monthly production fetched:', {
-        dataPoints: production.length,
+        period: production.period,
+        dataPointsCount: production.dataPoints.length,
       });
     }, 30000);
 
@@ -150,11 +158,17 @@ describe('DashboardService - Integration Tests (REAL API)', () => {
         // Intentar con período inválido
         const production = await dashboardService.getProductionByPeriod('invalid');
         
-        // Si no falla, debe retornar array vacío o datos por defecto
-        expect(Array.isArray(production)).toBe(true);
+        // Si no falla, debe retornar estructura válida con arrays vacíos
+        expect(production).toBeDefined();
+        expect(production).toHaveProperty('period');
+        expect(production).toHaveProperty('labels');
+        expect(production).toHaveProperty('dataPoints');
+        expect(Array.isArray(production.labels)).toBe(true);
+        expect(Array.isArray(production.dataPoints)).toBe(true);
         console.log('✅ Invalid period handled with fallback');
       } catch (error) {
-        // Si falla, es aceptable
+        // Si falla, debe ser un error esperado
+        expect(error).toBeDefined();
         console.log('✅ Invalid period rejected correctly');
       }
     }, 30000);
