@@ -65,6 +65,21 @@ class DashboardService {
       throw error;
     }
   }
+
+  /**
+   * Get employee-specific dashboard summary
+   * Uses the same endpoint as company but filters for employee context
+   * @returns {Promise<Object>} Employee dashboard data
+   */
+  async getEmployeeSummary() {
+    try {
+      const response = await api.get(API_ENDPOINTS.DASHBOARD.SUMMARY);
+      return response.data.data || response.data;
+    } catch (error) {
+      console.error('Error fetching employee summary:', error);
+      throw error;
+    }
+  }
 }
 
 export default new DashboardService();
